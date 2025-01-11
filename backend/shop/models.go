@@ -32,7 +32,7 @@ type Order struct {
 	PaymentTime      sql.NullTime
 	CollectionTime   sql.NullTime
 	Cancelled        bool
-	CouponCode       sql.NullString
+	CouponID         sql.NullInt64
 }
 
 type OrderItem struct {

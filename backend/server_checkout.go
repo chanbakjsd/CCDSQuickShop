@@ -92,15 +92,22 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) checkAndFulfill(ctx context.Context, sessionID string) (string, error) {
+	// We would ideally use sql.NullString but sqlc does not play well with our query so we just use a non-sensical value instead.
+	couponCode := "INVALID_STRIPE_COUPON_CODE"
 	if s.Stripe == nil {
 		slog.Warn("skipping Stripe validation as Stripe is not configured", "session_id", sessionID)
 	} else {
-		session, err := s.Stripe.CheckoutSessions.Get(sessionID, &stripe.CheckoutSessionParams{})
+		session, err := s.Stripe.CheckoutSessions.Get(sessionID, &stripe.CheckoutSessionParams{
+			Expand: []*string{stripe.String("total_details.breakdown")},
+		})
 		if err != nil {
 			return "", fmt.Errorf("failed to fetch checkout session: %w", err)
 		}
 		if session.PaymentStatus == "unpaid" {
 			return "", fmt.Errorf("payment status of checkout session is unpaid")
+		}
+		if len(session.TotalDetails.Breakdown.Discounts) > 0 {
+			couponCode = session.TotalDetails.Breakdown.Discounts[0].Discount.Coupon.ID
 		}
 	}
 	orderID, err := s.Queries.CompleteCheckout(ctx, shop.CompleteCheckoutParams{
@@ -108,6 +115,7 @@ func (s *Server) checkAndFulfill(ctx context.Context, sessionID string) (string,
 			String: sessionID,
 			Valid:  true,
 		},
+		CouponStripeID: couponCode,
 		PaymentTime: sql.NullTime{
 			Time:  time.Now(),
 			Valid: true,
@@ -152,7 +160,8 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// Validate the order.
-	var couponID *string
+	var couponID *int64
+	var couponStripeID *string
 	if checkoutReq.Coupon != nil {
 		coupon, err := s.Queries.UseCoupon(ctx, *checkoutReq.Coupon)
 		switch {
@@ -164,7 +173,8 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		couponID = &coupon.StripeID
+		couponID = &coupon.CouponID
+		couponStripeID = &coupon.StripeID
 	}
 	items, err := constructOrder(checkoutReq, products)
 	if err != nil {
@@ -172,11 +182,11 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var couponCode sql.NullString
+	var nullCouponID sql.NullInt64
 	if checkoutReq.Coupon != nil {
-		couponCode = sql.NullString{
-			String: *checkoutReq.Coupon,
-			Valid:  true,
+		nullCouponID = sql.NullInt64{
+			Int64: *couponID,
+			Valid: true,
 		}
 	}
 	// Write to database.
@@ -186,7 +196,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			OrderID:      orderID,
 			Name:         checkoutReq.Name,
 			MatricNumber: checkoutReq.MatricNumber,
-			CouponCode:   couponCode,
+			CouponID:     nullCouponID,
 		}
 		tx, err := s.DB.Begin()
 		if err != nil {
@@ -226,7 +236,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			slog.Warn("skipping checkout session creation as Stripe is not configured")
 			redirectURL = s.Config.FrontendURL + "/api/v0/checkout/complete?session_id=" + paymentRef
 		} else {
-			checkoutSession, err := s.createStripeCheckoutSession(orderID, items, couponID)
+			checkoutSession, err := s.createStripeCheckoutSession(orderID, items, couponStripeID)
 			if err != nil {
 				slog.Error("error creating checkout session", "err", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -12,7 +12,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
@@ -64,6 +66,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	// Called from frontend.
 	mux.HandleFunc("GET /api/v0/coupons", s.Coupons)
+	mux.HandleFunc("GET /api/v0/orders/:id", s.OrderLookup)
 	mux.HandleFunc("GET /api/v0/products", s.Products)
 	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
 	mux.HandleFunc("POST /api/v0/checkout", s.Checkout)
@@ -218,6 +221,94 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+type OrderResponse struct {
+	OrderID          string      `json:"id"`
+	Name             string      `json:"name"`
+	MatricNumber     string      `json:"matricNumber"`
+	PaymentReference string      `json:"paymentRef"`
+	PaymentTime      *time.Time  `json:"paymentTime"`
+	CollectionTime   *time.Time  `json:"collectionTime"`
+	Cancelled        bool        `json:"cancelled"`
+	Coupon           *Coupon     `json:"coupon"`
+	Items            []OrderItem `json:"items"`
+}
+
+type OrderItem struct {
+	ProductID string            `json:"id"`
+	Name      string            `json:"name"`
+	Variant   []CartItemVariant `json:"variant"`
+	ImageURL  string            `json:"imageURL"`
+	Amount    int               `json:"amount"`
+	UnitPrice int               `json:"unitPrice"`
+}
+
+func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	orderID := mux.Vars(req)["id"]
+	dbOrder, err := s.Queries.LookupOrder(ctx, shop.LookupOrderParams{
+		OrderID:      orderID,
+		MatricNumber: orderID,
+		PaymentReference: sql.NullString{
+			String: orderID,
+			Valid:  true,
+		},
+	})
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		http.Error(w, "Invalid order ID", http.StatusNotFound)
+		return
+	case err != nil:
+		slog.Error("error looking up order", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	dbOrderItems, err := s.Queries.ListOrderItems(ctx, dbOrder.OrderID)
+	if err != nil {
+		slog.Error("error looking up order items", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	var coupon *Coupon
+	if dbOrder.CouponID.Valid {
+		dbCoupon, err := s.Queries.CouponByID(ctx, dbOrder.CouponID.Int64)
+		if err != nil {
+			slog.Error("error looking up coupon", "err", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		c := dbCouponToCoupon(dbCoupon)
+		coupon = &c
+	}
+	orderItems := make([]OrderItem, 0, len(dbOrderItems))
+	for _, item := range dbOrderItems {
+		orderItems = append(orderItems, OrderItem{
+			ProductID: item.ProductID,
+			Name:      item.ProductName,
+			Variant: []CartItemVariant{
+				{Option: item.Variant},
+			},
+			ImageURL:  item.ImageUrl,
+			Amount:    int(item.Amount),
+			UnitPrice: int(item.UnitPrice),
+		})
+	}
+	order := OrderResponse{
+		OrderID:          dbOrder.OrderID,
+		Name:             dbOrder.Name,
+		MatricNumber:     dbOrder.MatricNumber,
+		PaymentReference: dbOrder.PaymentReference.String,
+		Cancelled:        dbOrder.Cancelled,
+		Coupon:           coupon,
+		Items:            orderItems,
+	}
+	if dbOrder.PaymentTime.Valid {
+		order.PaymentTime = &dbOrder.PaymentTime.Time
+	}
+	if dbOrder.CollectionTime.Valid {
+		order.CollectionTime = &dbOrder.CollectionTime.Time
+	}
+}
+
 type CouponsResponse struct {
 	Coupons []Coupon `json:"coupons"`
 }
@@ -241,15 +332,7 @@ func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
 	}
 	coupons := make([]Coupon, 0, len(dbCoupons))
 	for _, coupon := range dbCoupons {
-		requirements := make([]json.RawMessage, 0)
-		if coupon.MinPurchaseQuantity.Valid {
-			requirements = append(requirements, json.RawMessage(fmt.Sprintf(`{"type":"purchase_count","amount":%d}`, coupon.MinPurchaseQuantity.Int64)))
-		}
-		coupons = append(coupons, Coupon{
-			Requirements: requirements,
-			CouponCode:   coupon.CouponCode,
-			Discount:     json.RawMessage(fmt.Sprintf(`{"type":"percentage","amount":%d}`, coupon.DiscountPercentage)),
-		})
+		coupons = append(coupons, dbCouponToCoupon(coupon))
 	}
 	if err := json.NewEncoder(w).Encode(CouponsResponse{
 		Coupons: coupons,
@@ -445,4 +528,16 @@ func dbProductsToProducts(dbProducts []shop.Product, includeDisabled bool) ([]Pr
 		products = append(products, product)
 	}
 	return products, nil
+}
+
+func dbCouponToCoupon(dbCoupon shop.Coupon) Coupon {
+	requirements := make([]json.RawMessage, 0)
+	if dbCoupon.MinPurchaseQuantity.Valid {
+		requirements = append(requirements, json.RawMessage(fmt.Sprintf(`{"type":"purchase_count","amount":%d}`, dbCoupon.MinPurchaseQuantity.Int64)))
+	}
+	return Coupon{
+		Requirements: requirements,
+		CouponCode:   dbCoupon.CouponCode,
+		Discount:     json.RawMessage(fmt.Sprintf(`{"type":"percentage","amount":%d}`, dbCoupon.DiscountPercentage)),
+	}
 }

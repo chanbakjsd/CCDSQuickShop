@@ -48,19 +48,33 @@ const completeCheckout = `-- name: CompleteCheckout :one
 UPDATE
 	orders
 SET
-	payment_time = COALESCE(payment_time, ?)
+	payment_time = COALESCE(payment_time, ?),
+	coupon_id = (
+		SELECT coupon_id FROM (
+			SELECT
+				coupon_id
+			FROM
+				coupons
+			WHERE
+				stripe_id = ?
+			UNION ALL
+			SELECT NULL
+		) x
+		LIMIT 1
+	)
 WHERE
-	payment_reference = ?
+	orders.payment_reference = ?
 RETURNING order_id
 `
 
 type CompleteCheckoutParams struct {
 	PaymentTime      sql.NullTime
+	CouponStripeID   string
 	PaymentReference sql.NullString
 }
 
 func (q *Queries) CompleteCheckout(ctx context.Context, arg CompleteCheckoutParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, completeCheckout, arg.PaymentTime, arg.PaymentReference)
+	row := q.db.QueryRowContext(ctx, completeCheckout, arg.PaymentTime, arg.CouponStripeID, arg.PaymentReference)
 	var order_id string
 	err := row.Scan(&order_id)
 	return order_id, err
@@ -78,6 +92,31 @@ func (q *Queries) CountAdminUsers(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const couponByID = `-- name: CouponByID :one
+SELECT
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+FROM
+	coupons
+WHERE
+	coupon_id = ?
+`
+
+func (q *Queries) CouponByID(ctx context.Context, couponID int64) (Coupon, error) {
+	row := q.db.QueryRowContext(ctx, couponByID, couponID)
+	var i Coupon
+	err := row.Scan(
+		&i.CouponID,
+		&i.CouponCode,
+		&i.StripeID,
+		&i.MinPurchaseQuantity,
+		&i.DiscountPercentage,
+		&i.Enabled,
+		&i.Public,
+		&i.RedemptionLimit,
+	)
+	return i, err
 }
 
 const createAdminUser = `-- name: CreateAdminUser :exec
@@ -122,7 +161,7 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int
 
 const createOrder = `-- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
+	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
 ) VALUES (
 	?, ?, ?, NULL, NULL, NULL, FALSE, ?
 )
@@ -132,7 +171,7 @@ type CreateOrderParams struct {
 	OrderID      string
 	Name         string
 	MatricNumber string
-	CouponCode   sql.NullString
+	CouponID     sql.NullInt64
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error {
@@ -140,7 +179,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error 
 		arg.OrderID,
 		arg.Name,
 		arg.MatricNumber,
-		arg.CouponCode,
+		arg.CouponID,
 	)
 	return err
 }
@@ -372,9 +411,9 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 	return items, nil
 }
 
-const lookupOrder = `-- name: LookupOrder :many
+const lookupOrder = `-- name: LookupOrder :one
 SELECT
-	id, order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
+	id, order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
 FROM
 	orders
 WHERE
@@ -389,37 +428,21 @@ type LookupOrderParams struct {
 	PaymentReference sql.NullString
 }
 
-func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Order, error) {
-	rows, err := q.db.QueryContext(ctx, lookupOrder, arg.OrderID, arg.MatricNumber, arg.PaymentReference)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Order
-	for rows.Next() {
-		var i Order
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrderID,
-			&i.Name,
-			&i.MatricNumber,
-			&i.PaymentReference,
-			&i.PaymentTime,
-			&i.CollectionTime,
-			&i.Cancelled,
-			&i.CouponCode,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) (Order, error) {
+	row := q.db.QueryRowContext(ctx, lookupOrder, arg.OrderID, arg.MatricNumber, arg.PaymentReference)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.Name,
+		&i.MatricNumber,
+		&i.PaymentReference,
+		&i.PaymentTime,
+		&i.CollectionTime,
+		&i.Cancelled,
+		&i.CouponID,
+	)
+	return i, err
 }
 
 const setCouponEnabled = `-- name: SetCouponEnabled :exec

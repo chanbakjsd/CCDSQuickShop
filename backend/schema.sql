@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS orders (
 	payment_time      DATETIME,
 	collection_time   DATETIME,
 	cancelled         BOOLEAN NOT NULL,
-	coupon_code       TEXT REFERENCES coupons(coupon_code)
+	coupon_id         INTEGER REFERENCES coupons(coupon_id)
 );
 
 CREATE TABLE IF NOT EXISTS order_items (

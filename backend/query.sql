@@ -84,6 +84,14 @@ WHERE
 	enabled = TRUE
 	AND public = TRUE;
 
+-- name: CouponByID :one
+SELECT
+	*
+FROM
+	coupons
+WHERE
+	coupon_id = ?;
+
 -- name: UseCoupon :one
 SELECT
 	*
@@ -115,7 +123,7 @@ WHERE
 
 -- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
+	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
 ) VALUES (
 	?, ?, ?, NULL, NULL, NULL, FALSE, ?
 );
@@ -128,7 +136,7 @@ SET
 WHERE
 	order_id = ?;
 
--- name: LookupOrder :many
+-- name: LookupOrder :one
 SELECT
 	*
 FROM
@@ -142,9 +150,22 @@ WHERE
 UPDATE
 	orders
 SET
-	payment_time = COALESCE(payment_time, ?)
+	payment_time = COALESCE(payment_time, ?),
+	coupon_id = (
+		SELECT * FROM (
+			SELECT
+				coupon_id
+			FROM
+				coupons
+			WHERE
+				stripe_id = @coupon_stripe_id
+			UNION ALL
+			SELECT NULL
+		) x
+		LIMIT 1
+	)
 WHERE
-	payment_reference = ?
+	orders.payment_reference = ?
 RETURNING order_id;
 
 -- name: UpdateCollectionTime :exec
