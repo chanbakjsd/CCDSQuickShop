@@ -1,81 +1,18 @@
 <script lang="ts">
+	import { fetchProducts } from '$lib/api';
 	import type { CartItem, Coupon } from '$lib/cart';
+	import Header from '$lib/Header.svelte';
 	import type { ShopItem } from '$lib/shop';
+	import { onMount } from 'svelte';
 	import Cart from './Cart.svelte';
 	import MerchSelection from './MerchSelection.svelte';
 
-	const items: ShopItem[] = [
-		{
-			id: 'sticker',
-			name: 'Stickers',
-			basePrice: 199,
-			variants: [
-				{
-					type: 'Image',
-					options: [
-						{
-							text: 'SCDS Club Logo (Light)',
-							additionalPrice: 0
-						},
-						{
-							text: 'SCDS Club Logo (Dark)',
-							additionalPrice: 0
-						},
-						{
-							text: 'Eat Sleep Code Repeat',
-							additionalPrice: 100
-						}
-					]
-				}
-			],
-			defaultImageURL: 'https://placehold.co/400',
-			imageURLs: [
-				{ selectedOptions: ['SCDS Club Logo (Dark)'], url: 'https://placehold.co/200' },
-				{ selectedOptions: ['Eat Sleep Code Repeat'], url: 'https://placehold.co/300' }
-			]
-		},
-		{
-			id: 'tshirt-dino',
-			name: 'Dino T-Shirt',
-			basePrice: 1699,
-			variants: [
-				{
-					type: 'Material',
-					options: [
-						{ text: 'Dri-fit', additionalPrice: 400 },
-						{ text: 'Cotton', additionalPrice: 0 }
-					]
-				},
-				{
-					type: 'Color',
-					options: [
-						{ text: 'Navy', additionalPrice: 0 },
-						{ text: 'White', additionalPrice: 0 },
-						{ text: 'Black', additionalPrice: 0 }
-					]
-				},
-				{
-					type: 'Size',
-					options: [
-						{ text: '3XS', additionalPrice: 0 },
-						{ text: '2XS', additionalPrice: 0 },
-						{ text: 'XS', additionalPrice: 0 },
-						{ text: 'S', additionalPrice: 0 },
-						{ text: 'M', additionalPrice: 0 },
-						{ text: 'L', additionalPrice: 0 },
-						{ text: 'XL', additionalPrice: 0 },
-						{ text: '2XL', additionalPrice: 0 },
-						{ text: '3XL', additionalPrice: 0 }
-					]
-				}
-			],
-			defaultImageURL: 'https://placehold.co/500',
-			imageURLs: [
-				{ selectedOptions: [undefined, 'White'], url: 'https://placehold.co/200' },
-				{ selectedOptions: [undefined, 'Black'], url: 'https://placehold.co/300' }
-			]
-		}
-	];
+	let items: ShopItem[] = [];
+	onMount(() => {
+		fetchProducts().then((x) => {
+			items = x;
+		});
+	});
 
 	let cart: CartItem[] = [];
 	const addToCart = (item: CartItem) => {
@@ -124,16 +61,7 @@
 
 <main class="grid grid-cols-1 md:grid-cols-3">
 	<div class="left-panel">
-		<div
-			class="sticky top-0 -my-2 flex items-center justify-center gap-2 bg-white pb-2 md:justify-start"
-		>
-			<img
-				src="https://ntuscds.com/scse-logo/scds-logo.png"
-				class="size-16"
-				alt="Logo for SCDS Club"
-			/>
-			<p class="text-2xl font-bold text-brand">Merch Store</p>
-		</div>
+		<Header />
 		<div class="px-2 md:py-2">
 			<MerchSelection {items} addItem={addToCart} />
 		</div>

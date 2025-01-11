@@ -45,7 +45,9 @@
 	// The variant being previewed (selected), gets updated due to bind below.
 	$: activePreviewVariant = activeMerch >= 0 ? chosenVariants[activeMerch] : {};
 	// The chosenVariants table but replaces the selected option with the preview variant to allow sneak peeks.
-	$: previewVariants = chosenVariants.map((x, i) => (i === activeMerch ? activePreviewVariant : x));
+	$: previewVariants = items.map((_, i) =>
+		i === activeMerch ? activePreviewVariant : chosenVariants[i] || {}
+	);
 	const tryAddItem = () => {
 		if (!cartItem) return;
 		addItem({ ...cartItem });

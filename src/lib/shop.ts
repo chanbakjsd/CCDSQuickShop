@@ -1,20 +1,35 @@
-export type ShopItem = {
-	id: string
-	name: string
-	basePrice: number
-	variants: {
-		type: string
-		options: {
-			text: string
-			additionalPrice?: number
-		}[]
-	}[]
-	defaultImageURL: string
-	imageURLs: {
-		selectedOptions: (string | undefined)[]
-		url: string
-	}[]
-}
+import { z } from 'zod';
+
+export const ShopItem = z.object({
+	id: z.string(),
+	name: z.string(),
+	basePrice: z.number(),
+	variants: z.object({
+		type: z.string(),
+		options: z.object({
+			text: z.string(),
+			additionalPrice: z.number().optional(),
+		}).array()
+	}).array(),
+	defaultImageURL: z.string(),
+	imageURLs: z.object({
+		selectedOptions: z.string().nullable().array(),
+		url: z.string(),
+	}).array(),
+	enabled: z.boolean().optional(),
+})
+
+export type ShopItem = z.infer<typeof ShopItem>;
+
+export const emptyShopItem = (name: string): ShopItem => ({
+	id: "",
+	name,
+	basePrice: 0,
+	variants: [],
+	defaultImageURL: "",
+	imageURLs: [],
+	enabled: false,
+})
 
 export const toArrayVariant = (item: ShopItem, variants: Record<string, string>) => {
 	const arrVarriants: (string | undefined)[] = Array(item.variants.length).fill(undefined);
