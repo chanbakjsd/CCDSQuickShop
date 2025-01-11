@@ -10,6 +10,25 @@ import (
 	"database/sql"
 )
 
+const associateOrder = `-- name: AssociateOrder :exec
+UPDATE
+	orders
+SET
+	payment_reference = ?
+WHERE
+	order_id = ?
+`
+
+type AssociateOrderParams struct {
+	PaymentReference sql.NullString
+	OrderID          string
+}
+
+func (q *Queries) AssociateOrder(ctx context.Context, arg AssociateOrderParams) error {
+	_, err := q.db.ExecContext(ctx, associateOrder, arg.PaymentReference, arg.OrderID)
+	return err
+}
+
 const authAdminUser = `-- name: AuthAdminUser :one
 SELECT
 	email
@@ -23,6 +42,28 @@ func (q *Queries) AuthAdminUser(ctx context.Context, email string) (string, erro
 	row := q.db.QueryRowContext(ctx, authAdminUser, email)
 	err := row.Scan(&email)
 	return email, err
+}
+
+const completeCheckout = `-- name: CompleteCheckout :one
+UPDATE
+	orders
+SET
+	payment_time = COALESCE(payment_time, ?)
+WHERE
+	payment_reference = ?
+RETURNING order_id
+`
+
+type CompleteCheckoutParams struct {
+	PaymentTime      sql.NullTime
+	PaymentReference sql.NullString
+}
+
+func (q *Queries) CompleteCheckout(ctx context.Context, arg CompleteCheckoutParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, completeCheckout, arg.PaymentTime, arg.PaymentReference)
+	var order_id string
+	err := row.Scan(&order_id)
+	return order_id, err
 }
 
 const countAdminUsers = `-- name: CountAdminUsers :one
@@ -79,55 +120,57 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int
 	return coupon_id, err
 }
 
-const createOrder = `-- name: CreateOrder :one
+const createOrder = `-- name: CreateOrder :exec
 INSERT INTO orders (
-	name, matric_number, payment_reference, status, coupon_code
+	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
 ) VALUES (
-	?, ?, ?, 'PLACED', ?
-) RETURNING order_id
+	?, ?, ?, NULL, NULL, NULL, FALSE, ?
+)
 `
 
 type CreateOrderParams struct {
-	Name             string
-	MatricNumber     string
-	PaymentReference sql.NullString
-	CouponCode       sql.NullString
+	OrderID      string
+	Name         string
+	MatricNumber string
+	CouponCode   sql.NullString
 }
 
-func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createOrder,
+func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error {
+	_, err := q.db.ExecContext(ctx, createOrder,
+		arg.OrderID,
 		arg.Name,
 		arg.MatricNumber,
-		arg.PaymentReference,
 		arg.CouponCode,
 	)
-	var order_id int64
-	err := row.Scan(&order_id)
-	return order_id, err
+	return err
 }
 
 const createOrderItem = `-- name: CreateOrderItem :exec
 INSERT INTO order_items (
-	order_id, product_id, unit_price, amount, variant
+	order_id, product_id, product_name, unit_price, amount, image_url, variant
 ) VALUES (
-	?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 )
 `
 
 type CreateOrderItemParams struct {
-	OrderID   int64
-	ProductID string
-	UnitPrice int64
-	Amount    int64
-	Variant   string
+	OrderID     string
+	ProductID   string
+	ProductName string
+	UnitPrice   int64
+	Amount      int64
+	ImageUrl    string
+	Variant     string
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) error {
 	_, err := q.db.ExecContext(ctx, createOrderItem,
 		arg.OrderID,
 		arg.ProductID,
+		arg.ProductName,
 		arg.UnitPrice,
 		arg.Amount,
+		arg.ImageUrl,
 		arg.Variant,
 	)
 	return err
@@ -208,14 +251,14 @@ func (q *Queries) ListAdminUsers(ctx context.Context) ([]string, error) {
 
 const listOrderItems = `-- name: ListOrderItems :many
 SELECT
-	order_id, product_id, unit_price, amount, variant
+	order_id, product_id, product_name, unit_price, amount, image_url, variant
 FROM
 	order_items
 WHERE
 	order_id = ?
 `
 
-func (q *Queries) ListOrderItems(ctx context.Context, orderID int64) ([]OrderItem, error) {
+func (q *Queries) ListOrderItems(ctx context.Context, orderID string) ([]OrderItem, error) {
 	rows, err := q.db.QueryContext(ctx, listOrderItems, orderID)
 	if err != nil {
 		return nil, err
@@ -227,8 +270,10 @@ func (q *Queries) ListOrderItems(ctx context.Context, orderID int64) ([]OrderIte
 		if err := rows.Scan(
 			&i.OrderID,
 			&i.ProductID,
+			&i.ProductName,
 			&i.UnitPrice,
 			&i.Amount,
+			&i.ImageUrl,
 			&i.Variant,
 		); err != nil {
 			return nil, err
@@ -287,7 +332,7 @@ func (q *Queries) ListProducts(ctx context.Context, includeDisabled bool) ([]Pro
 
 const listPublicCoupons = `-- name: ListPublicCoupons :many
 SELECT
-	coupon_id, coupon_code, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
 FROM
 	coupons
 WHERE
@@ -307,6 +352,7 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 		if err := rows.Scan(
 			&i.CouponID,
 			&i.CouponCode,
+			&i.StripeID,
 			&i.MinPurchaseQuantity,
 			&i.DiscountPercentage,
 			&i.Enabled,
@@ -328,7 +374,7 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 
 const lookupOrder = `-- name: LookupOrder :many
 SELECT
-	order_id, name, matric_number, payment_reference, status, coupon_code
+	id, order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
 FROM
 	orders
 WHERE
@@ -338,7 +384,7 @@ WHERE
 `
 
 type LookupOrderParams struct {
-	OrderID          int64
+	OrderID          string
 	MatricNumber     string
 	PaymentReference sql.NullString
 }
@@ -353,11 +399,14 @@ func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Ord
 	for rows.Next() {
 		var i Order
 		if err := rows.Scan(
+			&i.ID,
 			&i.OrderID,
 			&i.Name,
 			&i.MatricNumber,
 			&i.PaymentReference,
-			&i.Status,
+			&i.PaymentTime,
+			&i.CollectionTime,
+			&i.Cancelled,
 			&i.CouponCode,
 		); err != nil {
 			return nil, err
@@ -411,6 +460,44 @@ func (q *Queries) SetProductEnabled(ctx context.Context, arg SetProductEnabledPa
 	return err
 }
 
+const updateCancelled = `-- name: UpdateCancelled :exec
+UPDATE
+	orders
+SET
+	cancelled = ?
+WHERE
+	order_id = ?
+`
+
+type UpdateCancelledParams struct {
+	Cancelled bool
+	OrderID   string
+}
+
+func (q *Queries) UpdateCancelled(ctx context.Context, arg UpdateCancelledParams) error {
+	_, err := q.db.ExecContext(ctx, updateCancelled, arg.Cancelled, arg.OrderID)
+	return err
+}
+
+const updateCollectionTime = `-- name: UpdateCollectionTime :exec
+UPDATE
+	orders
+SET
+	collection_time = ?
+WHERE
+	order_id = ?
+`
+
+type UpdateCollectionTimeParams struct {
+	CollectionTime sql.NullTime
+	OrderID        string
+}
+
+func (q *Queries) UpdateCollectionTime(ctx context.Context, arg UpdateCollectionTimeParams) error {
+	_, err := q.db.ExecContext(ctx, updateCollectionTime, arg.CollectionTime, arg.OrderID)
+	return err
+}
+
 const updateCoupon = `-- name: UpdateCoupon :exec
 UPDATE
 	coupons
@@ -442,44 +529,6 @@ func (q *Queries) UpdateCoupon(ctx context.Context, arg UpdateCouponParams) erro
 		arg.Public,
 		arg.CouponID,
 	)
-	return err
-}
-
-const updateOrderStatusID = `-- name: UpdateOrderStatusID :exec
-UPDATE
-	orders
-SET
-	status = ?
-WHERE
-	order_id = ?
-`
-
-type UpdateOrderStatusIDParams struct {
-	Status  string
-	OrderID int64
-}
-
-func (q *Queries) UpdateOrderStatusID(ctx context.Context, arg UpdateOrderStatusIDParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrderStatusID, arg.Status, arg.OrderID)
-	return err
-}
-
-const updateOrderStatusPaymentRef = `-- name: UpdateOrderStatusPaymentRef :exec
-UPDATE
-	orders
-SET
-	status = ?
-WHERE
-	payment_reference = ?
-`
-
-type UpdateOrderStatusPaymentRefParams struct {
-	Status           string
-	PaymentReference sql.NullString
-}
-
-func (q *Queries) UpdateOrderStatusPaymentRef(ctx context.Context, arg UpdateOrderStatusPaymentRefParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrderStatusPaymentRef, arg.Status, arg.PaymentReference)
 	return err
 }
 
@@ -522,7 +571,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 
 const useCoupon = `-- name: UseCoupon :one
 SELECT
-	coupon_id, coupon_code, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
 FROM
 	coupons
 WHERE
@@ -536,6 +585,7 @@ func (q *Queries) UseCoupon(ctx context.Context, couponCode string) (Coupon, err
 	err := row.Scan(
 		&i.CouponID,
 		&i.CouponCode,
+		&i.StripeID,
 		&i.MinPurchaseQuantity,
 		&i.DiscountPercentage,
 		&i.Enabled,

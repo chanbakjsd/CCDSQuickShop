@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fetchProducts } from '$lib/api';
+	import { fetchCoupons, fetchProducts } from '$lib/api';
 	import type { CartItem, Coupon } from '$lib/cart';
 	import Header from '$lib/Header.svelte';
 	import type { ShopItem } from '$lib/shop';
@@ -8,9 +8,13 @@
 	import MerchSelection from './MerchSelection.svelte';
 
 	let items: ShopItem[] = [];
+	let coupon: Coupon[] = [];
 	onMount(() => {
 		fetchProducts().then((x) => {
 			items = x;
+		});
+		fetchCoupons().then((x) => {
+			coupons = x;
 		});
 	});
 
@@ -37,24 +41,6 @@
 		}
 		cart = [...cart, item];
 	};
-	const coupon: Coupon[] = [
-		{
-			requirements: [{ type: 'purchase_count', amount: 3 }],
-			couponCode: 'BUYTOGETHER3',
-			discount: {
-				type: 'percentage',
-				amount: 5
-			}
-		},
-		{
-			requirements: [{ type: 'purchase_count', amount: 5 }],
-			couponCode: 'BUYTOGETHER5',
-			discount: {
-				type: 'percentage',
-				amount: 10
-			}
-		}
-	];
 </script>
 
 <svelte:head><title>SCDS Merch Store</title></svelte:head>

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS coupons (
 	coupon_id             INTEGER PRIMARY KEY,
 	coupon_code           TEXT NOT NULL,
+	stripe_id             TEXT NOT NULL,
 	min_purchase_quantity INTEGER,
 	discount_percentage   INTEGER NOT NULL,
 	enabled               BOOLEAN NOT NULL,
@@ -24,19 +25,24 @@ CREATE TABLE IF NOT EXISTS coupons (
 );
 
 CREATE TABLE IF NOT EXISTS orders (
-	order_id          INTEGER PRIMARY KEY,
+	id                INTEGER PRIMARY KEY,
+	order_id          TEXT UNIQUE NOT NULL,
 	name              TEXT NOT NULL,
 	matric_number     TEXT NOT NULL,
 	payment_reference TEXT UNIQUE,
-	status            TEXT NOT NULL, -- PLACED, PAID, COLLECTED, CANCELLED
+	payment_time      DATETIME,
+	collection_time   DATETIME,
+	cancelled         BOOLEAN NOT NULL,
 	coupon_code       TEXT REFERENCES coupons(coupon_code)
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
-	order_id   INTEGER NOT NULL REFERENCES orders(order_id),
-	product_id TEXT    NOT NULL REFERENCES products(product_id),
-	unit_price INTEGER NOT NULL,
-	amount     INTEGER NOT NULL,
+	order_id     TEXT    NOT NULL REFERENCES orders(order_id),
+	product_id   TEXT    NOT NULL REFERENCES products(product_id),
+	product_name TEXT    NOT NULL,
+	unit_price   INTEGER NOT NULL,
+	amount       INTEGER NOT NULL,
+	image_url    TEXT    NOT NULL,
 	-- JSON of the selected variants.
-	variant    TEXT    NOT NULL
+	variant      TEXT    NOT NULL
 );

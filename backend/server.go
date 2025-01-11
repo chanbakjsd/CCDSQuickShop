@@ -17,6 +17,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stripe/stripe-go/v81/client"
 
 	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
 )
@@ -28,6 +29,7 @@ type Server struct {
 	Config  *ServerConfig
 	DB      *sql.DB
 	Queries *shop.Queries
+	Stripe  *client.API
 }
 
 func NewServer(cfg *ServerConfig) (*Server, error) {
@@ -43,22 +45,33 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 	if _, err := db.Exec(schemaSQL); err != nil {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
+	var stripe *client.API
+	if cfg.StripeSecretKey == "" {
+		slog.Warn("stripe secret missing, payment will be skipped")
+	} else {
+		stripe = &client.API{}
+		stripe.Init(cfg.StripeSecretKey, nil)
+	}
 	return &Server{
 		Config:  cfg,
 		DB:      db,
 		Queries: shop.New(db),
+		Stripe:  stripe,
 	}, nil
 }
 
 func (s *Server) HTTPMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	// Directly accessed by user.
-	mux.HandleFunc("GET /api/v0/auth", s.Auth)
-	mux.HandleFunc("GET /api/v0/auth/callback", s.AuthCallback)
 	// Called from frontend.
 	mux.HandleFunc("GET /api/v0/coupons", s.Coupons)
 	mux.HandleFunc("GET /api/v0/products", s.Products)
 	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
+	mux.HandleFunc("POST /api/v0/checkout", s.Checkout)
+	mux.HandleFunc("POST /api/v0/checkout/stripe", s.StripeWebhook)
+	mux.HandleFunc("GET /api/v0/checkout/complete", s.CheckoutComplete)
+	// Admin paths.
+	mux.HandleFunc("GET /api/v0/auth", s.Auth)
+	mux.HandleFunc("GET /api/v0/auth/callback", s.AuthCallback)
 	mux.HandleFunc("GET /api/v0/perm_check", s.PermissionCheck)
 	mux.HandleFunc("GET /api/v0/users", s.AdminUsers)
 	mux.HandleFunc("POST /api/v0/users", s.CreateAdminUser)
@@ -80,13 +93,28 @@ type ProductsResponse struct {
 }
 
 type Product struct {
-	ID              string          `json:"id"`
-	Name            string          `json:"name"`
-	BasePrice       int             `json:"basePrice"`
-	Variants        json.RawMessage `json:"variants"`
-	DefaultImageURL string          `json:"defaultImageURL"`
-	ImageURLs       json.RawMessage `json:"imageURLs"`
-	Enabled         *bool           `json:"enabled,omitempty"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	BasePrice       int               `json:"basePrice"`
+	Variants        []ProductVariant  `json:"variants"`
+	DefaultImageURL string            `json:"defaultImageURL"`
+	ImageURLs       []ProductImageURL `json:"imageURLs"`
+	Enabled         *bool             `json:"enabled,omitempty"`
+}
+
+type ProductVariant struct {
+	Type    string                  `json:"type"`
+	Options []ProductVariantOptions `json:"options"`
+}
+
+type ProductVariantOptions struct {
+	Text            string `json:"text"`
+	AdditionalPrice int    `json:"additionalPrice"`
+}
+
+type ProductImageURL struct {
+	SelectedOptions []*string `json:"selectedOptions"`
+	URL             string    `json:"url"`
 }
 
 func (s *Server) Products(w http.ResponseWriter, req *http.Request) {
@@ -104,20 +132,11 @@ func (s *Server) Products(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	products := make([]Product, 0, len(dbProducts))
-	for _, p := range dbProducts {
-		product := Product{
-			ID:              strconv.Itoa(int(p.ProductID)),
-			Name:            p.Name,
-			BasePrice:       int(p.BasePrice),
-			Variants:        json.RawMessage(p.Variants),
-			DefaultImageURL: p.DefaultImageUrl,
-			ImageURLs:       json.RawMessage(p.VariantImageUrls),
-		}
-		if includeDisabled {
-			product.Enabled = &p.Enabled
-		}
-		products = append(products, product)
+	products, err := dbProductsToProducts(dbProducts, includeDisabled)
+	if err != nil {
+		slog.Error("error parsing products", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 	if err := json.NewEncoder(w).Encode(ProductsResponse{
 		Products: products,
@@ -143,6 +162,16 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid Body", http.StatusBadRequest)
 		return
 	}
+	productVariants, err := json.Marshal(product.Variants)
+	if err != nil {
+		slog.Error("error marshalling product variant", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+	imageURLs, err := json.Marshal(product.ImageURLs)
+	if err != nil {
+		slog.Error("error marshalling image URLs", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 	var sqlErr error
 	switch product.ID {
 	case "":
@@ -152,8 +181,8 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 			Name:             product.Name,
 			BasePrice:        int64(product.BasePrice),
 			DefaultImageUrl:  product.DefaultImageURL,
-			Variants:         string(product.Variants),
-			VariantImageUrls: string(product.ImageURLs),
+			Variants:         string(productVariants),
+			VariantImageUrls: string(imageURLs),
 			Enabled:          *product.Enabled,
 		})
 		product.ID = strconv.Itoa(int(newID))
@@ -169,8 +198,8 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 			Name:             product.Name,
 			BasePrice:        int64(product.BasePrice),
 			DefaultImageUrl:  product.DefaultImageURL,
-			Variants:         string(product.Variants),
-			VariantImageUrls: string(product.ImageURLs),
+			Variants:         string(productVariants),
+			VariantImageUrls: string(imageURLs),
 			Enabled:          *product.Enabled,
 		})
 	}
@@ -353,10 +382,16 @@ func (s *Server) completeAuth(w http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) validAdminUser(ctx context.Context, email string) (bool, error) {
 	for i := 0; i < 5; i++ {
+		ok := false
 		tx, err := s.DB.Begin()
 		if err != nil {
 			return false, fmt.Errorf("cannot start transaction: %w", err)
 		}
+		defer func() {
+			if !ok {
+				_ = tx.Rollback()
+			}
+		}()
 		queries := s.Queries.WithTx(tx)
 		count, err := queries.CountAdminUsers(ctx)
 		if err != nil {
@@ -373,6 +408,7 @@ func (s *Server) validAdminUser(ctx context.Context, email string) (bool, error)
 			slog.Warn("error commiting validAdminUser: %w", "err", err)
 			continue
 		}
+		ok = true
 		switch {
 		case errors.Is(authErr, sql.ErrNoRows):
 			return false, nil
@@ -382,4 +418,31 @@ func (s *Server) validAdminUser(ctx context.Context, email string) (bool, error)
 		return true, nil
 	}
 	return false, fmt.Errorf("too many transaction failures")
+}
+
+func dbProductsToProducts(dbProducts []shop.Product, includeDisabled bool) ([]Product, error) {
+	products := make([]Product, 0, len(dbProducts))
+	for _, p := range dbProducts {
+		var variants []ProductVariant
+		var imageURLs []ProductImageURL
+		if err := json.Unmarshal([]byte(p.Variants), &variants); err != nil {
+			return nil, fmt.Errorf("error unmarshalling products: %w", err)
+		}
+		if err := json.Unmarshal([]byte(p.VariantImageUrls), &imageURLs); err != nil {
+			return nil, fmt.Errorf("error unmarshalling image URLs: %w", err)
+		}
+		product := Product{
+			ID:              strconv.Itoa(int(p.ProductID)),
+			Name:            p.Name,
+			BasePrice:       int(p.BasePrice),
+			Variants:        variants,
+			DefaultImageURL: p.DefaultImageUrl,
+			ImageURLs:       imageURLs,
+		}
+		if includeDisabled {
+			product.Enabled = &p.Enabled
+		}
+		products = append(products, product)
+	}
+	return products, nil
 }

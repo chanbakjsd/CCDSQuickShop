@@ -18,14 +18,18 @@ func main() {
 	frontendURL := flag.String("frontend", "http://localhost:8080", "URL of the frontend")
 	googleClientID := flag.String("client-id", "", "Google Client ID")
 	googleClientSecret := flag.String("client-secret", "", "Google Client Secret")
+	stripeSecretKey := flag.String("stripe-secret", "", "Stripe Secret Key")
+	stripeWebhookSecret := flag.String("stripe-webhook", "", "Stripe Webhook Secret")
 	flag.Parse()
 
 	cfg := &ServerConfig{
-		ListenAddr:         *listenAddr,
-		Sqlite3ConnStr:     *sqlite3ConnStr,
-		FrontendURL:        *frontendURL,
-		GoogleClientID:     *googleClientID,
-		GoogleClientSecret: *googleClientSecret,
+		ListenAddr:          *listenAddr,
+		Sqlite3ConnStr:      *sqlite3ConnStr,
+		FrontendURL:         *frontendURL,
+		GoogleClientID:      *googleClientID,
+		GoogleClientSecret:  *googleClientSecret,
+		StripeSecretKey:     *stripeSecretKey,
+		StripeWebhookSecret: *stripeWebhookSecret,
 	}
 	if *forwardURL != "" {
 		parsedURL, err := url.Parse(*forwardURL)
@@ -50,9 +54,11 @@ type ServerConfig struct {
 	StaticDir      *http.Dir
 	Forwarder      *httputil.ReverseProxy
 
-	GoogleClientID     string
-	GoogleClientSecret string
-	FrontendURL        string
+	GoogleClientID      string
+	GoogleClientSecret  string
+	StripeSecretKey     string
+	StripeWebhookSecret string
+	FrontendURL         string
 }
 
 func run(config *ServerConfig) error {

@@ -14,10 +14,23 @@ if [ -z "$GOOGLE_CLIENT_SECRET" ]; then
 	echo -n "Google Client Secret: "
 	read GOOGLE_CLIENT_SECRET
 fi
+if [ -z "$STRIPE_SECRET_KEY" ]; then
+	echo -n "Stripe Secret Key: "
+	read STRIPE_SECRET_KEY
+fi
+if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
+	echo -n "Stripe Webhook Secret: "
+	read STRIPE_WEBHOOK_SECRET
+fi
 if [ -z "$SESSION_SECRET" ]; then
 	echo -n "Session Secret: "
 	read SESSION_SECRET
 fi
 
 export SESSION_SECRET
-go run . -forward=http://localhost:5173 "-client-id=$GOOGLE_CLIENT_ID" "-client-secret=$GOOGLE_CLIENT_SECRET"
+go run . \
+	-forward=http://localhost:5173 \
+	"-client-id=$GOOGLE_CLIENT_ID" \
+	"-client-secret=$GOOGLE_CLIENT_SECRET" \
+	"-stripe-secret=$STRIPE_SECRET_KEY" \
+	"-stripe-webhook=$STRIPE_WEBHOOK_SECRET"

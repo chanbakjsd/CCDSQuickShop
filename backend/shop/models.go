@@ -15,6 +15,7 @@ type AdminUser struct {
 type Coupon struct {
 	CouponID            int64
 	CouponCode          string
+	StripeID            string
 	MinPurchaseQuantity sql.NullInt64
 	DiscountPercentage  int64
 	Enabled             bool
@@ -23,20 +24,25 @@ type Coupon struct {
 }
 
 type Order struct {
-	OrderID          int64
+	ID               int64
+	OrderID          string
 	Name             string
 	MatricNumber     string
 	PaymentReference sql.NullString
-	Status           string
+	PaymentTime      sql.NullTime
+	CollectionTime   sql.NullTime
+	Cancelled        bool
 	CouponCode       sql.NullString
 }
 
 type OrderItem struct {
-	OrderID   int64
-	ProductID string
-	UnitPrice int64
-	Amount    int64
-	Variant   string
+	OrderID     string
+	ProductID   string
+	ProductName string
+	UnitPrice   int64
+	Amount      int64
+	ImageUrl    string
+	Variant     string
 }
 
 type Product struct {

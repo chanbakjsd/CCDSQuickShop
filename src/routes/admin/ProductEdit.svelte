@@ -91,7 +91,7 @@
 			<div class="flex gap-1">
 				{#each product.variants as variant, j}
 					<select bind:value={product.imageURLs[i].selectedOptions[j]}>
-						<option value={undefined}>ANY {variant.type.toUpperCase()}</option>
+						<option value={null}>ANY {variant.type.toUpperCase()}</option>
 						{#each variant.options as option}
 							<option value={option.text}>{option.text}</option>
 						{/each}

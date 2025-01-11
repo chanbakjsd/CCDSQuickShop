@@ -113,12 +113,20 @@ SET
 WHERE
 	coupon_id = ?;
 
--- name: CreateOrder :one
+-- name: CreateOrder :exec
 INSERT INTO orders (
-	name, matric_number, payment_reference, status, coupon_code
+	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_code
 ) VALUES (
-	?, ?, ?, 'PLACED', ?
-) RETURNING order_id;
+	?, ?, ?, NULL, NULL, NULL, FALSE, ?
+);
+
+-- name: AssociateOrder :exec
+UPDATE
+	orders
+SET
+	payment_reference = ?
+WHERE
+	order_id = ?;
 
 -- name: LookupOrder :many
 SELECT
@@ -130,27 +138,36 @@ WHERE
 	OR matric_number = ? COLLATE NOCASE
 	OR payment_reference = ? COLLATE NOCASE;
 
--- name: UpdateOrderStatusID :exec
+-- name: CompleteCheckout :one
 UPDATE
 	orders
 SET
-	status = ?
+	payment_time = COALESCE(payment_time, ?)
+WHERE
+	payment_reference = ?
+RETURNING order_id;
+
+-- name: UpdateCollectionTime :exec
+UPDATE
+	orders
+SET
+	collection_time = ?
 WHERE
 	order_id = ?;
 
--- name: UpdateOrderStatusPaymentRef :exec
+-- name: UpdateCancelled :exec
 UPDATE
 	orders
 SET
-	status = ?
+	cancelled = ?
 WHERE
-	payment_reference = ?;
+	order_id = ?;
 
 -- name: CreateOrderItem :exec
 INSERT INTO order_items (
-	order_id, product_id, unit_price, amount, variant
+	order_id, product_id, product_name, unit_price, amount, image_url, variant
 ) VALUES (
-	?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 );
 
 -- name: ListOrderItems :many

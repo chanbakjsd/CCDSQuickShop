@@ -1,4 +1,5 @@
 import { z, type ZodType } from "zod"
+import { Coupon, type CartItem } from "./cart"
 import { ShopItem } from "./shop"
 
 const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: RequestInit): Promise<z.infer<T>> => {
@@ -19,6 +20,22 @@ const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: Req
 	return typ.parse(val)
 }
 
+const CheckoutResponse = z.object({
+	checkoutURL: z.string(),
+})
+export const checkout = async (checkoutItems: CartItem[], name: string, matricNumber: string, coupon: string | undefined): Promise<string> => {
+	const items = checkoutItems.map(x => ({
+		id: x.id,
+		variant: x.variant,
+		amount: x.amount,
+	}))
+	const resp = await handleFetch(CheckoutResponse, "/api/v0/checkout", {
+		method: "POST",
+		body: JSON.stringify({ name, matricNumber, coupon, items })
+	})
+	return resp.checkoutURL
+}
+
 const ProductsResponse = z.object({
 	products: ShopItem.array(),
 })
@@ -36,6 +53,18 @@ export const updateProduct = async (product: ShopItem): Promise<ShopItem> => {
 		method: 'POST',
 		body: JSON.stringify(product),
 	})
+}
+
+const CouponsResponse = z.object({
+	coupons: Coupon.array(),
+})
+export const fetchCoupons = async (includeDisabled?: boolean): Promise<Coupon[]> => {
+	let path = "/api/v0/coupons"
+	if (includeDisabled) {
+		path += "?include_disabled=1"
+	}
+	const resp = await handleFetch(CouponsResponse, path)
+	return resp.coupons
 }
 
 export const permCheck = async (): Promise<void> => {

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const formatPrice = (price: number) => price.toFixed(2)
 
 export type CartItem = {
@@ -12,22 +14,26 @@ export type CartItem = {
 	unitPrice: number // The unit price of the item in cents.
 }
 
-export type Coupon = {
-	requirements: Requirement[]
-	couponCode: string
-	discount: Discount
-};
-
-export type Requirement = {
-	type: "purchase_count"
-	amount: number
-}
+export const Requirement = z.object({
+	type: z.literal("purchase_count"),
+	amount: z.number(),
+})
 
 // Discount is used for previewing discounts in the cart.
-export type Discount = {
-	type: "percentage"
-	amount: number // 40% discount (i.e. pay 60%) is represented as 40.
-}
+export const Discount = z.object({
+	type: z.literal("percentage"),
+	amount: z.number(), // 40% discount (i.e. pay 60%) is represented as 40.
+})
+
+export const Coupon = z.object({
+	requirements: Requirement.array(),
+	couponCode: z.string(),
+	discount: Discount,
+});
+
+export type Requirement = z.infer<typeof Requirement>
+export type Discount = z.infer<typeof Discount>
+export type Coupon = z.infer<typeof Coupon>
 
 export const calculateCartTotal = (cart: CartItem[]) =>
 	cart.reduce<number>((total, item) => total + item.unitPrice * item.amount, 0);

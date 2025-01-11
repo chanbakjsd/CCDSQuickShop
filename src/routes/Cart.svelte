@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { checkout } from '$lib/api';
 	import { type CartItem, type Coupon, applyCoupon, checkRequirement } from '$lib/cart';
 	import Button from '$lib/Button.svelte';
 	import Input from '$lib/Input.svelte';
@@ -26,6 +27,11 @@
 	let userMatricNumber = '';
 	$: checkoutValid =
 		cart.length > 0 && validateName(userName) && validateMatricNum(userMatricNumber);
+
+	const processCheckout = async () => {
+		const checkoutURL = await checkout(cart, userName, userMatricNumber, bestCoupon?.couponCode);
+		window.location.href = checkoutURL;
+	};
 </script>
 
 <div class="flex min-h-full flex-col justify-between gap-4">
@@ -46,7 +52,7 @@
 			<Input label="Name" bind:value={userName} validate={validateName} />
 			<Input label="Matric Number" bind:value={userMatricNumber} validate={validateMatricNum} />
 		</div>
-		<Button disabled={!checkoutValid}>Checkout</Button>
+		<Button disabled={!checkoutValid} on:click={processCheckout}>Checkout</Button>
 		<p class="text-center text-xs italic text-gray-500">
 			{#if bestCoupon}
 				You can apply promotional codes on the checkout page if you have received one!
