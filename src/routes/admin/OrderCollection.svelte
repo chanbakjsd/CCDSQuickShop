@@ -7,8 +7,10 @@
 	let orders: Order[] = [];
 	let orderInput = '';
 	let includeCancelled = false;
+	let emptyResponse = false;
 	const searchOrders = async () => {
 		orders = await listOrders(orderInput, includeCancelled);
+		emptyResponse = orders.length === 0;
 	};
 	const markCollect = (orderID: string) => async () => {
 		await collectOrder(orderID);
@@ -34,9 +36,10 @@
 		<input type="checkbox" bind:checked={includeCancelled} />
 		Include Cancelled
 	</label>
-	<Button size="md" on:click={searchOrders}>Search</Button>
+	<Button size="md" onClick={searchOrders}>Search</Button>
 </div>
 <div class="flex flex-col gap-4">
+	{#if emptyResponse}No orders matched.{/if}
 	{#each orders as order}
 		<OrderPreview {order} collect={markCollect(order.id)} cancel={markCancel(order.id)} />
 	{/each}

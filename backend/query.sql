@@ -143,7 +143,7 @@ FROM
 	orders
 WHERE
 	(
-		CAST(order_id AS TEXT) = @id COLLATE NOCASE
+		order_id = @id COLLATE NOCASE
 		OR matric_number = @id COLLATE NOCASE
 		OR payment_reference = @id COLLATE NOCASE
 		OR email = @id COLLATE NOCASE
@@ -152,6 +152,7 @@ WHERE
 	AND
 	(
 		CAST(@include_cancelled AS BOOLEAN)
+		OR order_id = @id COLLATE NOCASE -- Always allow lookup via order ID even if it's cancelled.
 		OR cancelled = FALSE
 	);
 

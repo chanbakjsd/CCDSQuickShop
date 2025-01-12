@@ -43,6 +43,9 @@
 		);
 		window.location.href = checkoutURL;
 	};
+
+	let checkoutButton: Button;
+	const clickCheckout = () => checkoutButton.click();
 </script>
 
 <div class="flex min-h-full flex-col justify-between gap-4">
@@ -59,7 +62,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-2">
-		<div class="grid grid-cols-1 xl:grid-cols-2">
+		<form class="grid grid-cols-1 xl:grid-cols-2" on:submit={clickCheckout}>
 			<Input label="Name" bind:value={userName} validate={validateName} />
 			<Input label="Matric Number" bind:value={userMatricNumber} validate={validateMatricNum} />
 			<div class="flex items-end xl:col-span-2">
@@ -68,8 +71,12 @@
 				</div>
 				<span class="text-lg">@e.ntu.edu.sg</span>
 			</div>
-		</div>
-		<Button disabled={!checkoutValid} on:click={processCheckout}>Checkout</Button>
+			<!-- https://stackoverflow.com/questions/4196681/form-not-submitting-when-pressing-enter -->
+			<input type="submit" class="hidden" />
+		</form>
+		<Button disabled={!checkoutValid} onClick={processCheckout} bind:this={checkoutButton}>
+			Checkout
+		</Button>
 		<p class="text-center text-xs italic text-gray-500">
 			{#if bestCoupon}
 				You can apply promotional codes on the checkout page if you have received one!

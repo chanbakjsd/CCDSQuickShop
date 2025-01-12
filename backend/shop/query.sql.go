@@ -437,7 +437,7 @@ FROM
 	orders
 WHERE
 	(
-		CAST(order_id AS TEXT) = ?1 COLLATE NOCASE
+		order_id = ?1 COLLATE NOCASE
 		OR matric_number = ?1 COLLATE NOCASE
 		OR payment_reference = ?1 COLLATE NOCASE
 		OR email = ?1 COLLATE NOCASE
@@ -446,6 +446,7 @@ WHERE
 	AND
 	(
 		CAST(?2 AS BOOLEAN)
+		OR order_id = ?1 COLLATE NOCASE -- Always allow lookup via order ID even if it's cancelled.
 		OR cancelled = FALSE
 	)
 `

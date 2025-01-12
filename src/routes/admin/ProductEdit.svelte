@@ -77,10 +77,10 @@
 				<input type="number" bind:value={product.variants[i].options[j].additionalPrice} />
 				<button on:click={removeVariantOption(i, j)}><TrashIcon classes="size-4" /></button>
 			{/each}
-			<Button size="md" on:click={addVariantOption(i)}>Add {variant.type} Option</Button>
+			<Button size="md" onClick={addVariantOption(i)}>Add {variant.type} Option</Button>
 		</div>
 	{/each}
-	<span class="col-span-2 flex"><Button size="md" on:click={addVariant}>Add Variant</Button></span>
+	<span class="col-span-2 flex"><Button size="md" onClick={addVariant}>Add Variant</Button></span>
 	<span class="header">Variant Image URLs</span>
 	{#each product.imageURLs as _, i}
 		<div class="flex items-center justify-between self-start">
@@ -102,9 +102,9 @@
 		</div>
 	{/each}
 	<span class="col-span-2 flex">
-		<Button size="md" on:click={addImageURL}>Add Image URL Variant</Button>
+		<Button size="md" onClick={addImageURL}>Add Image URL Variant</Button>
 	</span>
-	<div class="flex"><Button on:click={updateProduct}>Update Product</Button></div>
+	<div class="flex"><Button onClick={updateProduct}>Update Product</Button></div>
 </div>
 
 <style lang="postcss">

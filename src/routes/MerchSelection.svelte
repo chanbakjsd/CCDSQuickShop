@@ -74,7 +74,7 @@
 				{/each}
 			</div>
 			<div class="mt-2">
-				<Button on:click={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
+				<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
 			</div>
 		</div>
 	{/if}

@@ -29,7 +29,7 @@
 		<form on:submit={addAdminEmail}>
 			<input placeholder="Email of New Admin" bind:value={adminEmail} />
 		</form>
-		<Button size="md" on:click={addAdminEmail}>Add</Button>
+		<Button size="md" onClick={addAdminEmail}>Add</Button>
 	</div>
 
 	<div class="admin-list">
