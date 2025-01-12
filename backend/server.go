@@ -36,10 +36,10 @@ type Server struct {
 }
 
 func NewServer(cfg *ServerConfig) (*Server, error) {
-	if cfg.GoogleClientID == "" || cfg.GoogleClientSecret == "" {
-		slog.Warn("client id or secret missing, admin authentication will not work")
-	} else {
+	if cfg.authenticationOK() {
 		goth.UseProviders(google.New(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.FrontendURL+"/api/v0/auth/callback"))
+	} else {
+		slog.Warn("client id or secret missing, admin authentication will not work")
 	}
 	db, err := sql.Open("sqlite3", cfg.Sqlite3ConnStr)
 	if err != nil {
@@ -492,6 +492,11 @@ func (s *Server) Auth(w http.ResponseWriter, req *http.Request) {
 	if err := s.completeAuth(w, req); err == nil {
 		return
 	}
+	if !s.Config.authenticationOK() {
+		slog.Error("denying authentication anyways as authentication was previously configured")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 	req = req.WithContext(context.WithValue(req.Context(), gothic.ProviderParamKey, "google"))
 	gothic.BeginAuthHandler(w, req)
 }
@@ -514,21 +519,27 @@ func (s *Server) authCheck(w http.ResponseWriter, req *http.Request) bool {
 }
 
 func (s *Server) completeAuth(w http.ResponseWriter, req *http.Request) error {
-	req = req.WithContext(context.WithValue(req.Context(), gothic.ProviderParamKey, "google"))
-	user, err := gothic.CompleteUserAuth(w, req)
-	if err != nil {
-		return err
+	email := "GOOGLE_AUTH_NOT_CONFIGURED"
+	if s.Config.authenticationOK() {
+		req = req.WithContext(context.WithValue(req.Context(), gothic.ProviderParamKey, "google"))
+		user, err := gothic.CompleteUserAuth(w, req)
+		if err != nil {
+			return err
+		}
+		email = user.Email
+	} else {
+		slog.Warn("potentially allowing admin login due to misconfigured Google authentication")
 	}
 	ctx := req.Context()
-	ok, err := s.validAdminUser(ctx, user.Email)
+	ok, err := s.validAdminUser(ctx, email)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("invalid user: %s", user.Email)
+		return fmt.Errorf("invalid user: %s", email)
 	}
-	if err := gothic.StoreInSession("user", user.Email, req, w); err != nil {
-		return fmt.Errorf("failed to store session: %s", user.Email)
+	if err := gothic.StoreInSession("user", email, req, w); err != nil {
+		return fmt.Errorf("failed to store session: %s", email)
 	}
 	http.Redirect(w, req, s.Config.FrontendURL+"/admin", http.StatusTemporaryRedirect)
 	return nil
@@ -572,6 +583,10 @@ func (s *Server) validAdminUser(ctx context.Context, email string) (bool, error)
 		return true, nil
 	}
 	return false, fmt.Errorf("too many transaction failures")
+}
+
+func (cfg *ServerConfig) authenticationOK() bool {
+	return cfg.GoogleClientID != "" || cfg.GoogleClientSecret != ""
 }
 
 func dbProductsToProducts(dbProducts []shop.Product, includeDisabled bool) ([]Product, error) {

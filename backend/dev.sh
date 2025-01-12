@@ -26,6 +26,10 @@ if [ -z "$SESSION_SECRET" ]; then
 	echo -n "Session Secret: "
 	read SESSION_SECRET
 fi
+if [ -z "$SESSION_SECRET" ]; then
+	echo "Session Secret not provided, generating random value."
+	SESSION_SECRET=$(cat /dev/urandom | base64 | head -c 32)
+fi
 
 export SESSION_SECRET
 go run . \
