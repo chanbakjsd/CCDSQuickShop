@@ -92,7 +92,7 @@ FROM
 WHERE
 	coupon_id = ?;
 
--- name: UseCoupon :one
+-- name: CouponEnabledByCode :one
 SELECT
 	*
 FROM

@@ -57,6 +57,8 @@ export const updateProduct = async (product: ShopItem): Promise<ShopItem> => {
 	})
 }
 
+export const fetchCoupon = (couponCode: string): Promise<Coupon> => handleFetch(Coupon, `${API_URL}/coupons/${encodeURI(couponCode)}`)
+
 const CouponsResponse = z.object({
 	coupons: Coupon.array(),
 })

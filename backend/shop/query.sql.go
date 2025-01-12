@@ -119,6 +119,32 @@ func (q *Queries) CouponByID(ctx context.Context, couponID int64) (Coupon, error
 	return i, err
 }
 
+const couponEnabledByCode = `-- name: CouponEnabledByCode :one
+SELECT
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+FROM
+	coupons
+WHERE
+	coupon_code = ?
+	AND enabled = TRUE
+`
+
+func (q *Queries) CouponEnabledByCode(ctx context.Context, couponCode string) (Coupon, error) {
+	row := q.db.QueryRowContext(ctx, couponEnabledByCode, couponCode)
+	var i Coupon
+	err := row.Scan(
+		&i.CouponID,
+		&i.CouponCode,
+		&i.StripeID,
+		&i.MinPurchaseQuantity,
+		&i.DiscountPercentage,
+		&i.Enabled,
+		&i.Public,
+		&i.RedemptionLimit,
+	)
+	return i, err
+}
+
 const createAdminUser = `-- name: CreateAdminUser :exec
 INSERT INTO admin_users (
 	email
@@ -640,30 +666,4 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.ProductID,
 	)
 	return err
-}
-
-const useCoupon = `-- name: UseCoupon :one
-SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
-FROM
-	coupons
-WHERE
-	coupon_code = ?
-	AND enabled = TRUE
-`
-
-func (q *Queries) UseCoupon(ctx context.Context, couponCode string) (Coupon, error) {
-	row := q.db.QueryRowContext(ctx, useCoupon, couponCode)
-	var i Coupon
-	err := row.Scan(
-		&i.CouponID,
-		&i.CouponCode,
-		&i.StripeID,
-		&i.MinPurchaseQuantity,
-		&i.DiscountPercentage,
-		&i.Enabled,
-		&i.Public,
-		&i.RedemptionLimit,
-	)
-	return i, err
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { checkout } from '$lib/api';
+	import { checkout, fetchCoupon } from '$lib/api';
 	import { type CartItem, type Coupon, applyCoupon, checkRequirement } from '$lib/cart';
 	import Button from '$lib/Button.svelte';
 	import Input from '$lib/Input.svelte';
@@ -22,16 +22,44 @@
 			return prev;
 		}, null);
 	};
+	const searchCoupon = async (cart: CartItem[], couponCode: string) => {
+		let candidate = availableCoupons.find((x) => x.couponCode === couponCode);
+		if (!candidate) {
+			candidate = await fetchCoupon(couponCode);
+		}
+		if (candidate.requirements.every((x) => checkRequirement(cart, x))) return candidate;
+		throw new Error('Coupon requirement not matched');
+	};
+
 	$: bestCoupon = findBestCoupon(cart, availableCoupons);
 
 	let userName = '';
 	let userMatricNumber = '';
 	let userEmail = '';
+	$: couponCode = bestCoupon?.couponCode || '';
+	let coupon: Coupon | undefined = undefined;
+	let couponInvalid = false;
+
+	$: {
+		if (couponCode) {
+			couponInvalid = false;
+			searchCoupon(cart, couponCode)
+				.then((x) => {
+					couponInvalid = false;
+					coupon = x;
+				})
+				.catch(() => {
+					couponInvalid = true;
+				});
+		}
+	}
+
 	$: checkoutValid =
 		cart.length > 0 &&
 		validateName(userName) &&
 		validateMatricNum(userMatricNumber) &&
-		validateEmail(userEmail);
+		validateEmail(userEmail) &&
+		(couponCode === '' || coupon);
 
 	const processCheckout = async () => {
 		const checkoutURL = await checkout(
@@ -71,18 +99,14 @@
 				</div>
 				<span class="text-lg">@e.ntu.edu.sg</span>
 			</div>
+			<div class="xl:col-span-2">
+				<Input label="Coupon Code" bind:value={couponCode} invalid={couponInvalid} />
+			</div>
 			<!-- https://stackoverflow.com/questions/4196681/form-not-submitting-when-pressing-enter -->
 			<input type="submit" class="hidden" />
 		</form>
 		<Button disabled={!checkoutValid} onClick={processCheckout} bind:this={checkoutButton}>
 			Checkout
 		</Button>
-		<p class="text-center text-xs italic text-gray-500">
-			{#if bestCoupon}
-				You can apply promotional codes on the checkout page if you have received one!
-			{:else}
-				You can apply a coupon code on the checkout page.
-			{/if}
-		</p>
 	</div>
 </div>

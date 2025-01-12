@@ -2,17 +2,19 @@
 	export let disabled = false;
 	export let size: 'md' | 'lg' = 'lg';
 	export let onClick: () => any;
+	export let loading = false;
 
-	let loading = false;
+	let internalLoading = false;
 	export const click = async () => {
-		loading = true;
+		if (shouldDisable) return;
+		internalLoading = true;
 		await onClick();
-		loading = false;
+		internalLoading = false;
 	};
 
-	$: shouldDisable = disabled || loading;
-	$: contentClass = loading ? 'opacity-0' : 'opacity-100';
-	$: loaderClass = loading ? 'opacity-100' : 'opacity-0';
+	$: shouldDisable = disabled || loading || internalLoading;
+	$: contentClass = loading || internalLoading ? 'opacity-0' : 'opacity-100';
+	$: loaderClass = loading || internalLoading ? 'opacity-100' : 'opacity-0';
 </script>
 
 <button class={`relative button-${size}`} on:click={click} disabled={shouldDisable}>

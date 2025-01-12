@@ -67,6 +67,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	// Called from frontend.
 	mux.HandleFunc("GET /api/v0/coupons", s.Coupons)
+	mux.HandleFunc("GET /api/v0/coupons/{id}", s.CouponLookup)
 	mux.HandleFunc("GET /api/v0/orders/{id}", s.OrderLookup)
 	mux.HandleFunc("GET /api/v0/products", s.Products)
 	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
@@ -378,39 +379,6 @@ func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-type CouponsResponse struct {
-	Coupons []Coupon `json:"coupons"`
-}
-
-type Coupon struct {
-	Requirements []json.RawMessage `json:"requirements"`
-	CouponCode   string            `json:"couponCode"`
-	Discount     json.RawMessage   `json:"discount"`
-}
-
-func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
-	dbCoupons, err := s.Queries.ListPublicCoupons(req.Context())
-	switch {
-	case errors.Is(err, context.Canceled):
-		// Cancelled by user. Do nothing.
-		return
-	case err != nil:
-		slog.Error("error fetching coupons", "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	coupons := make([]Coupon, 0, len(dbCoupons))
-	for _, coupon := range dbCoupons {
-		coupons = append(coupons, dbCouponToCoupon(coupon))
-	}
-	if err := json.NewEncoder(w).Encode(CouponsResponse{
-		Coupons: coupons,
-	}); err != nil {
-		slog.Error("error writing coupons response", "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
 }
 
 type (

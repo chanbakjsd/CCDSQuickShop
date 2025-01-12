@@ -52,7 +52,7 @@ export const applyCoupon = (cart: Item[], coupon: Coupon) => {
 	const cartTotal = calculateCartTotal(cart);
 	switch (coupon.discount.type) {
 		case 'percentage':
-			return Math.ceil((cartTotal * (100 - coupon.discount.amount)) / 100);
+			return Math.floor((cartTotal * (100 - coupon.discount.amount)) / 100);
 	}
 };
 

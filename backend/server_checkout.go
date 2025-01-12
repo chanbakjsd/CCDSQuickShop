@@ -184,7 +184,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 	var couponID *int64
 	var couponStripeID *string
 	if checkoutReq.Coupon != nil {
-		coupon, err := s.Queries.UseCoupon(ctx, *checkoutReq.Coupon)
+		coupon, err := s.Queries.CouponEnabledByCode(ctx, *checkoutReq.Coupon)
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			http.Error(w, "Invalid coupon code", http.StatusBadRequest)
@@ -399,19 +399,18 @@ func (s *Server) createStripeCheckoutSession(orderID string, email string, items
 	if couponID != nil {
 		discount = []*stripe.CheckoutSessionDiscountParams{
 			{
-				PromotionCode: couponID,
+				Coupon: couponID,
 			},
 		}
 	}
 	checkoutParams := &stripe.CheckoutSessionParams{
-		Mode:                stripe.String(string(stripe.CheckoutSessionModePayment)),
-		SuccessURL:          stripe.String(s.Config.FrontendURL + "/api/v0/checkout/complete?session_id={CHECKOUT_SESSION_ID}"),
-		CancelURL:           stripe.String(s.Config.FrontendURL),
-		LineItems:           checkoutLineItems,
-		AllowPromotionCodes: stripe.Bool(true),
-		Discounts:           discount,
-		ClientReferenceID:   stripe.String(orderID),
-		CustomerEmail:       stripe.String(email),
+		Mode:              stripe.String(string(stripe.CheckoutSessionModePayment)),
+		SuccessURL:        stripe.String(s.Config.FrontendURL + "/api/v0/checkout/complete?session_id={CHECKOUT_SESSION_ID}"),
+		CancelURL:         stripe.String(s.Config.FrontendURL),
+		LineItems:         checkoutLineItems,
+		Discounts:         discount,
+		ClientReferenceID: stripe.String(orderID),
+		CustomerEmail:     stripe.String(email),
 		PaymentIntentData: &stripe.CheckoutSessionPaymentIntentDataParams{
 			Description: stripe.String("Your order ID is " + orderID + "."),
 		},

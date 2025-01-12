@@ -1,7 +1,8 @@
 <script lang="ts">
 	export let label: string;
 	export let value = '';
-	export let validate = (_value: string) => true;
+	export let validate: (_value: string) => Promise<boolean> | boolean = () => true;
+	export let invalid = false;
 
 	let focused = false;
 	const focus = () => (focused = true);
@@ -11,8 +12,8 @@
 	};
 
 	let hasError = false;
-	const checkValue = (value: string, markNewError: boolean) => {
-		if (validate(value)) {
+	const checkValue = async (value: string, markNewError: boolean) => {
+		if (await validate(value)) {
 			hasError = false;
 			return;
 		}
@@ -24,7 +25,7 @@
 	$: checkValue(value, false);
 </script>
 
-<label class="relative" class:hasError>
+<label class="relative" class:hasError={hasError || invalid}>
 	<div class="label" class:expand={value === '' && !focused}>
 		<div class="absolute left-0 top-0 w-max">{label}</div>
 	</div>
