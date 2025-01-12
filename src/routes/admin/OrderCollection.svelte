@@ -6,8 +6,9 @@
 
 	let orders: Order[] = [];
 	let orderInput = '';
+	let includeCancelled = false;
 	const searchOrders = async () => {
-		orders = await listOrders(orderInput);
+		orders = await listOrders(orderInput, includeCancelled);
 	};
 	const markCollect = (orderID: string) => async () => {
 		await collectOrder(orderID);
@@ -25,10 +26,14 @@
 	};
 </script>
 
-<div class="flex gap-2">
+<div class="flex items-center gap-2">
 	<form on:submit={searchOrders}>
 		<Input label="Matric Number/Order ID/NTU Email" bind:value={orderInput} />
 	</form>
+	<label class="flex items-center gap-2 text-lg">
+		<input type="checkbox" bind:checked={includeCancelled} />
+		Include Cancelled
+	</label>
 	<Button size="md" on:click={searchOrders}>Search</Button>
 </div>
 <div class="flex flex-col gap-4">

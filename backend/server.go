@@ -19,6 +19,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/client"
 
 	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
@@ -250,9 +251,16 @@ type OrderItem struct {
 }
 
 func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
+	includeCancelled := req.URL.Query().Get("include_cancelled") != ""
+	if includeCancelled && !s.authCheck(w, req) {
+		return
+	}
 	ctx := req.Context()
 	orderID := req.PathValue("id")
-	dbOrders, err := s.Queries.LookupOrder(ctx, orderID)
+	dbOrders, err := s.Queries.LookupOrder(ctx, shop.LookupOrderParams{
+		ID:               orderID,
+		IncludeCancelled: includeCancelled,
+	})
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "Invalid order ID", http.StatusNotFound)
@@ -351,7 +359,7 @@ func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := req.Context()
 	orderID := req.PathValue("id")
-	err := s.Queries.UpdateCancelled(ctx, shop.UpdateCancelledParams{
+	paymentRef, err := s.Queries.UpdateCancelled(ctx, shop.UpdateCancelledParams{
 		Cancelled: true,
 		OrderID:   orderID,
 	})
@@ -361,6 +369,11 @@ func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
 		return
 	case err != nil:
 		slog.Error("error marking order as cancelled", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if _, err := s.Stripe.CheckoutSessions.Expire(paymentRef.String, &stripe.CheckoutSessionExpireParams{}); err != nil {
+		slog.Error("error expiring checkout sessions on Stripe", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

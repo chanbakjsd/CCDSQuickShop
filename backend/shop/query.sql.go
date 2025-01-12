@@ -260,6 +260,23 @@ func (q *Queries) DeleteAdminUser(ctx context.Context, email string) error {
 	return err
 }
 
+const expireCheckout = `-- name: ExpireCheckout :one
+UPDATE
+	orders
+SET
+	cancelled = TRUE
+WHERE
+	payment_reference = ?
+RETURNING order_id
+`
+
+func (q *Queries) ExpireCheckout(ctx context.Context, paymentReference sql.NullString) (string, error) {
+	row := q.db.QueryRowContext(ctx, expireCheckout, paymentReference)
+	var order_id string
+	err := row.Scan(&order_id)
+	return order_id, err
+}
+
 const listAdminUsers = `-- name: ListAdminUsers :many
 SELECT
 	email
@@ -419,15 +436,27 @@ SELECT
 FROM
 	orders
 WHERE
-	CAST(order_id AS TEXT) = ?1 COLLATE NOCASE
-	OR matric_number = ?1 COLLATE NOCASE
-	OR payment_reference = ?1 COLLATE NOCASE
-	OR email = ?1 COLLATE NOCASE
-	OR email = ?1 || '@e.ntu.edu.sg' COLLATE NOCASE
+	(
+		CAST(order_id AS TEXT) = ?1 COLLATE NOCASE
+		OR matric_number = ?1 COLLATE NOCASE
+		OR payment_reference = ?1 COLLATE NOCASE
+		OR email = ?1 COLLATE NOCASE
+		OR email = ?1 || '@e.ntu.edu.sg' COLLATE NOCASE
+	)
+	AND
+	(
+		CAST(?2 AS BOOLEAN)
+		OR cancelled = FALSE
+	)
 `
 
-func (q *Queries) LookupOrder(ctx context.Context, id string) ([]Order, error) {
-	rows, err := q.db.QueryContext(ctx, lookupOrder, id)
+type LookupOrderParams struct {
+	ID               string
+	IncludeCancelled bool
+}
+
+func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Order, error) {
+	rows, err := q.db.QueryContext(ctx, lookupOrder, arg.ID, arg.IncludeCancelled)
 	if err != nil {
 		return nil, err
 	}
@@ -498,13 +527,16 @@ func (q *Queries) SetProductEnabled(ctx context.Context, arg SetProductEnabledPa
 	return err
 }
 
-const updateCancelled = `-- name: UpdateCancelled :exec
+const updateCancelled = `-- name: UpdateCancelled :one
 UPDATE
 	orders
 SET
 	cancelled = ?
 WHERE
 	order_id = ?
+	AND cancelled = FALSE
+RETURNING
+	payment_reference
 `
 
 type UpdateCancelledParams struct {
@@ -512,16 +544,18 @@ type UpdateCancelledParams struct {
 	OrderID   string
 }
 
-func (q *Queries) UpdateCancelled(ctx context.Context, arg UpdateCancelledParams) error {
-	_, err := q.db.ExecContext(ctx, updateCancelled, arg.Cancelled, arg.OrderID)
-	return err
+func (q *Queries) UpdateCancelled(ctx context.Context, arg UpdateCancelledParams) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, updateCancelled, arg.Cancelled, arg.OrderID)
+	var payment_reference sql.NullString
+	err := row.Scan(&payment_reference)
+	return payment_reference, err
 }
 
 const updateCollectionTime = `-- name: UpdateCollectionTime :exec
 UPDATE
 	orders
 SET
-	collection_time = ?
+	collection_time = COALESCE(collection_time, ?)
 WHERE
 	order_id = ?
 `

@@ -142,11 +142,18 @@ SELECT
 FROM
 	orders
 WHERE
-	CAST(order_id AS TEXT) = @id COLLATE NOCASE
-	OR matric_number = @id COLLATE NOCASE
-	OR payment_reference = @id COLLATE NOCASE
-	OR email = @id COLLATE NOCASE
-	OR email = @id || '@e.ntu.edu.sg' COLLATE NOCASE;
+	(
+		CAST(order_id AS TEXT) = @id COLLATE NOCASE
+		OR matric_number = @id COLLATE NOCASE
+		OR payment_reference = @id COLLATE NOCASE
+		OR email = @id COLLATE NOCASE
+		OR email = @id || '@e.ntu.edu.sg' COLLATE NOCASE
+	)
+	AND
+	(
+		CAST(@include_cancelled AS BOOLEAN)
+		OR cancelled = FALSE
+	);
 
 -- name: CompleteCheckout :one
 UPDATE
@@ -170,6 +177,16 @@ WHERE
 	orders.payment_reference = ?
 RETURNING order_id;
 
+-- name: ExpireCheckout :one
+UPDATE
+	orders
+SET
+	cancelled = TRUE
+WHERE
+	payment_reference = ?
+RETURNING order_id;
+
+
 -- name: UpdateCollectionTime :exec
 UPDATE
 	orders
@@ -178,13 +195,16 @@ SET
 WHERE
 	order_id = ?;
 
--- name: UpdateCancelled :exec
+-- name: UpdateCancelled :one
 UPDATE
 	orders
 SET
 	cancelled = ?
 WHERE
-	order_id = ?;
+	order_id = ?
+	AND cancelled = FALSE
+RETURNING
+	payment_reference;
 
 -- name: CreateOrderItem :exec
 INSERT INTO order_items (

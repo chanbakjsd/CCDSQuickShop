@@ -80,6 +80,8 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, req *http.Request) {
 	}
 	switch event.Type {
 	case "checkout.session.completed":
+		fallthrough
+	case "checkout.session.expired":
 		sessionID, ok := event.Data.Object["id"].(string)
 		if !ok {
 			slog.Error("error reading ID of checkout session", "obj", event.Data.Object)
@@ -87,7 +89,7 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if _, err := s.checkAndFulfill(req.Context(), sessionID); err != nil {
-			slog.Error("failed to check and fulfill checkout", "err", err)
+			slog.Error("failed to check and fulfill checkout", "sessionID", sessionID, "err", err)
 			http.Error(w, "failed to validate Stripe checkout", http.StatusBadRequest)
 			return
 		}
@@ -107,8 +109,19 @@ func (s *Server) checkAndFulfill(ctx context.Context, sessionID string) (string,
 		if err != nil {
 			return "", fmt.Errorf("failed to fetch checkout session: %w", err)
 		}
+		if session.Status == "expired" {
+			slog.Debug("expiring checkout session", "session_id", sessionID)
+			orderID, err := s.Queries.ExpireCheckout(ctx, sql.NullString{
+				String: sessionID,
+				Valid:  true,
+			})
+			if err != nil {
+				return "", fmt.Errorf("error expiring checkout: %w", err)
+			}
+			return orderID, nil
+		}
 		if session.PaymentStatus == "unpaid" {
-			return "", fmt.Errorf("payment status of checkout session is unpaid")
+			return "", fmt.Errorf("payment status of checkout session is unpaid, expiry time %d", session.ExpiresAt)
 		}
 		if len(session.TotalDetails.Breakdown.Discounts) > 0 {
 			couponCode = session.TotalDetails.Breakdown.Discounts[0].Discount.Coupon.ID

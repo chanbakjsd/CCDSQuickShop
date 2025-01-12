@@ -110,8 +110,12 @@ const OrdersResponse = z.object({
 	orders: Order.array()
 })
 export type Order = z.infer<typeof Order>;
-export const listOrders = async (keyword: string): Promise<Order[]> => {
-	const resp = await handleFetch(OrdersResponse, `${API_URL}/orders/${encodeURI(keyword)}`)
+export const listOrders = async (keyword: string, includeCancelled?: boolean): Promise<Order[]> => {
+	let url = `${API_URL}/orders/${encodeURI(keyword)}`
+	if (includeCancelled) {
+		url += "?include_cancelled=1"
+	}
+	const resp = await handleFetch(OrdersResponse, url)
 	return resp.orders
 }
 
