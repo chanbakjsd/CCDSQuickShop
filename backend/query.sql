@@ -123,9 +123,9 @@ WHERE
 
 -- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
 ) VALUES (
-	?, ?, ?, NULL, NULL, NULL, FALSE, ?
+	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?
 );
 
 -- name: AssociateOrder :exec
@@ -136,15 +136,17 @@ SET
 WHERE
 	order_id = ?;
 
--- name: LookupOrder :one
+-- name: LookupOrder :many
 SELECT
 	*
 FROM
 	orders
 WHERE
-	CAST(order_id AS TEXT) = ?
-	OR matric_number = ? COLLATE NOCASE
-	OR payment_reference = ? COLLATE NOCASE;
+	CAST(order_id AS TEXT) = @id COLLATE NOCASE
+	OR matric_number = @id COLLATE NOCASE
+	OR payment_reference = @id COLLATE NOCASE
+	OR email = @id COLLATE NOCASE
+	OR email = @id || '@e.ntu.edu.sg' COLLATE NOCASE;
 
 -- name: CompleteCheckout :one
 UPDATE
@@ -172,7 +174,7 @@ RETURNING order_id;
 UPDATE
 	orders
 SET
-	collection_time = ?
+	collection_time = COALESCE(collection_time, ?)
 WHERE
 	order_id = ?;
 

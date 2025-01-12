@@ -24,11 +24,12 @@
 	$: checkValue(value, false);
 </script>
 
-<label class:hasError>
+<label class="relative" class:hasError>
 	<div class="label" class:expand={value === '' && !focused}>
 		<div class="absolute left-0 top-0 w-max">{label}</div>
 	</div>
 	<input bind:value on:focus={focus} on:blur={blur} />
+	<div class="pointer-events-none ml-1 mr-2 mt-4 text-lg opacity-0" aria-hidden="true">{label}</div>
 </label>
 
 <style lang="postcss">
@@ -36,14 +37,17 @@
 		@apply flex cursor-text flex-col text-gray-800;
 
 		div.label {
-			@apply relative h-4 w-0 text-xs transition-all;
+			@apply z-10 w-0 text-xs transition-all;
 			&.expand {
 				@apply translate-x-1 translate-y-4 text-lg text-gray-500;
 			}
 		}
 		input {
-			@apply border-b border-gray-800 px-1 transition-colors;
-			margin: 2px 2px 1px 2px;
+			@apply absolute border-b border-gray-800 bg-transparent px-1 transition-colors;
+			top: calc(1rem + 2px);
+			bottom: 1px;
+			right: 2px;
+			left: 2px;
 		}
 	}
 
@@ -51,7 +55,7 @@
 		@apply text-blue-800;
 		input {
 			@apply border-2 border-blue-600 text-gray-800 outline-none;
-			margin: 0;
+			@apply bottom-0 left-0 right-0 top-4;
 		}
 	}
 

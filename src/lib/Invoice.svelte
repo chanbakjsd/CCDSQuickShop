@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { type CartItem, type Coupon, applyCoupon, calculateCartTotal, formatPrice } from './cart';
+	import {
+		type CartItem,
+		type Coupon,
+		type OrderItem,
+		applyCoupon,
+		calculateCartTotal,
+		formatPrice
+	} from './cart';
 	import InvoiceItem from './InvoiceItem.svelte';
 	import { flip } from 'svelte/animate';
 
-	export let items: CartItem[];
-	export let coupon: Coupon | undefined;
+	export let items: (CartItem | OrderItem)[];
+	export let coupon: Coupon | null;
 	export let editable = false;
 
 	$: totalBeforeDiscount = calculateCartTotal(items);

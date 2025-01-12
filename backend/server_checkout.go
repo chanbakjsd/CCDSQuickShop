@@ -22,6 +22,7 @@ import (
 type CheckoutRequest struct {
 	Name         string     `json:"name"`
 	MatricNumber string     `json:"matricNumber"`
+	Email        string     `json:"email"`
 	Items        []CartItem `json:"items"`
 	Coupon       *string    `json:"coupon"`
 }
@@ -41,7 +42,10 @@ type CartItemVariant struct {
 	Option string `json:"option"`
 }
 
-var matricRegex = regexp.MustCompile(`^[UG]\d{7}[A-Z]$`)
+var (
+	matricRegex   = regexp.MustCompile(`^[UG]\d{7}[A-Z]$`)
+	ntuEmailRegex = regexp.MustCompile(`^[A-Za-z\d]+@(e\.)?ntu\.edu\.sg$`)
+)
 
 func (s *Server) CheckoutComplete(w http.ResponseWriter, req *http.Request) {
 	sessionID := req.URL.Query().Get("session_id")
@@ -143,6 +147,10 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid Matric Number", http.StatusBadRequest)
 		return
 	}
+	if !ntuEmailRegex.MatchString(checkoutReq.Email) {
+		http.Error(w, "Invalid Email", http.StatusBadRequest)
+		return
+	}
 	if len(checkoutReq.Items) == 0 {
 		http.Error(w, "At least one item is required", http.StatusBadRequest)
 		return
@@ -196,6 +204,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			OrderID:      orderID,
 			Name:         checkoutReq.Name,
 			MatricNumber: checkoutReq.MatricNumber,
+			Email:        checkoutReq.Email,
 			CouponID:     nullCouponID,
 		}
 		tx, err := s.DB.Begin()
@@ -236,7 +245,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			slog.Warn("skipping checkout session creation as Stripe is not configured")
 			redirectURL = s.Config.FrontendURL + "/api/v0/checkout/complete?session_id=" + paymentRef
 		} else {
-			checkoutSession, err := s.createStripeCheckoutSession(orderID, items, couponStripeID)
+			checkoutSession, err := s.createStripeCheckoutSession(orderID, checkoutReq.Email, items, couponStripeID)
 			if err != nil {
 				slog.Error("error creating checkout session", "err", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -353,7 +362,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]shop.OrderItem, 
 	return orderItems, nil
 }
 
-func (s *Server) createStripeCheckoutSession(orderID string, items []shop.OrderItem, couponID *string) (*stripe.CheckoutSession, error) {
+func (s *Server) createStripeCheckoutSession(orderID string, email string, items []shop.OrderItem, couponID *string) (*stripe.CheckoutSession, error) {
 	checkoutLineItems := make([]*stripe.CheckoutSessionLineItemParams, 0, len(items))
 	for _, v := range items {
 		var imageData []*string
@@ -389,6 +398,7 @@ func (s *Server) createStripeCheckoutSession(orderID string, items []shop.OrderI
 		AllowPromotionCodes: stripe.Bool(true),
 		Discounts:           discount,
 		ClientReferenceID:   stripe.String(orderID),
+		CustomerEmail:       stripe.String(email),
 		PaymentIntentData: &stripe.CheckoutSessionPaymentIntentDataParams{
 			Description: stripe.String("Your order ID is " + orderID + "."),
 		},

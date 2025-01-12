@@ -161,9 +161,9 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int
 
 const createOrder = `-- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
 ) VALUES (
-	?, ?, ?, NULL, NULL, NULL, FALSE, ?
+	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?
 )
 `
 
@@ -171,6 +171,7 @@ type CreateOrderParams struct {
 	OrderID      string
 	Name         string
 	MatricNumber string
+	Email        string
 	CouponID     sql.NullInt64
 }
 
@@ -179,6 +180,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error 
 		arg.OrderID,
 		arg.Name,
 		arg.MatricNumber,
+		arg.Email,
 		arg.CouponID,
 	)
 	return err
@@ -411,38 +413,51 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 	return items, nil
 }
 
-const lookupOrder = `-- name: LookupOrder :one
+const lookupOrder = `-- name: LookupOrder :many
 SELECT
-	id, order_id, name, matric_number, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	id, order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
 FROM
 	orders
 WHERE
-	CAST(order_id AS TEXT) = ?
-	OR matric_number = ? COLLATE NOCASE
-	OR payment_reference = ? COLLATE NOCASE
+	CAST(order_id AS TEXT) = ?1 COLLATE NOCASE
+	OR matric_number = ?1 COLLATE NOCASE
+	OR payment_reference = ?1 COLLATE NOCASE
+	OR email = ?1 COLLATE NOCASE
+	OR email = ?1 || '@e.ntu.edu.sg' COLLATE NOCASE
 `
 
-type LookupOrderParams struct {
-	OrderID          string
-	MatricNumber     string
-	PaymentReference sql.NullString
-}
-
-func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) (Order, error) {
-	row := q.db.QueryRowContext(ctx, lookupOrder, arg.OrderID, arg.MatricNumber, arg.PaymentReference)
-	var i Order
-	err := row.Scan(
-		&i.ID,
-		&i.OrderID,
-		&i.Name,
-		&i.MatricNumber,
-		&i.PaymentReference,
-		&i.PaymentTime,
-		&i.CollectionTime,
-		&i.Cancelled,
-		&i.CouponID,
-	)
-	return i, err
+func (q *Queries) LookupOrder(ctx context.Context, id string) ([]Order, error) {
+	rows, err := q.db.QueryContext(ctx, lookupOrder, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Order
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.Name,
+			&i.MatricNumber,
+			&i.Email,
+			&i.PaymentReference,
+			&i.PaymentTime,
+			&i.CollectionTime,
+			&i.Cancelled,
+			&i.CouponID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setCouponEnabled = `-- name: SetCouponEnabled :exec

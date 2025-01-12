@@ -28,6 +28,7 @@ type Order struct {
 	OrderID          string
 	Name             string
 	MatricNumber     string
+	Email            string
 	PaymentReference sql.NullString
 	PaymentTime      sql.NullTime
 	CollectionTime   sql.NullTime

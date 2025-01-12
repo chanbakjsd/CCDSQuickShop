@@ -2,17 +2,26 @@ import { z } from 'zod';
 
 export const formatPrice = (price: number) => price.toFixed(2)
 
-export type CartItem = {
-	id: string
-	name: string
-	variant: {
-		type: string
-		option: string
-	}[]
-	imageURL: string
-	amount: number
-	unitPrice: number // The unit price of the item in cents.
-}
+export const CartItem = z.object({
+	id: z.string(),
+	name: z.string(),
+	variant: z.object({
+		type: z.string(),
+		option: z.string(),
+	}).array(),
+	imageURL: z.string(),
+	amount: z.number(),
+	unitPrice: z.number() // The unit price of the item in cents.
+})
+
+export type OrderItem = z.infer<typeof OrderItem>
+export const OrderItem = CartItem.omit({
+	variant: true
+}).extend({
+	variant: z.string()
+})
+
+export type Item = CartItem | OrderItem
 
 export const Requirement = z.object({
 	type: z.literal("purchase_count"),
@@ -31,14 +40,15 @@ export const Coupon = z.object({
 	discount: Discount,
 });
 
+export type CartItem = z.infer<typeof CartItem>
 export type Requirement = z.infer<typeof Requirement>
 export type Discount = z.infer<typeof Discount>
 export type Coupon = z.infer<typeof Coupon>
 
-export const calculateCartTotal = (cart: CartItem[]) =>
+export const calculateCartTotal = (cart: Item[]) =>
 	cart.reduce<number>((total, item) => total + item.unitPrice * item.amount, 0);
 
-export const applyCoupon = (cart: CartItem[], coupon: Coupon) => {
+export const applyCoupon = (cart: Item[], coupon: Coupon) => {
 	const cartTotal = calculateCartTotal(cart);
 	switch (coupon.discount.type) {
 		case 'percentage':
@@ -46,7 +56,7 @@ export const applyCoupon = (cart: CartItem[], coupon: Coupon) => {
 	}
 };
 
-export const checkRequirement = (cart: CartItem[], requirement: Requirement) => {
+export const checkRequirement = (cart: Item[], requirement: Requirement) => {
 	switch (requirement.type) {
 		case 'purchase_count':
 			return cart.reduce<number>((total, item) => total + item.amount, 0) >= requirement.amount;

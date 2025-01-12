@@ -12,9 +12,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
@@ -66,7 +66,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	// Called from frontend.
 	mux.HandleFunc("GET /api/v0/coupons", s.Coupons)
-	mux.HandleFunc("GET /api/v0/orders/:id", s.OrderLookup)
+	mux.HandleFunc("GET /api/v0/orders/{id}", s.OrderLookup)
 	mux.HandleFunc("GET /api/v0/products", s.Products)
 	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
 	mux.HandleFunc("POST /api/v0/checkout", s.Checkout)
@@ -75,6 +75,8 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	// Admin paths.
 	mux.HandleFunc("GET /api/v0/auth", s.Auth)
 	mux.HandleFunc("GET /api/v0/auth/callback", s.AuthCallback)
+	mux.HandleFunc("POST /api/v0/orders/{id}/collect", s.OrderCollect)
+	mux.HandleFunc("POST /api/v0/orders/{id}/cancel", s.OrderCancel)
 	mux.HandleFunc("GET /api/v0/perm_check", s.PermissionCheck)
 	mux.HandleFunc("GET /api/v0/users", s.AdminUsers)
 	mux.HandleFunc("POST /api/v0/users", s.CreateAdminUser)
@@ -222,8 +224,13 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 }
 
 type OrderResponse struct {
+	Orders []Order `json:"orders"`
+}
+
+type Order struct {
 	OrderID          string      `json:"id"`
 	Name             string      `json:"name"`
+	Email            string      `json:"email"`
 	MatricNumber     string      `json:"matricNumber"`
 	PaymentReference string      `json:"paymentRef"`
 	PaymentTime      *time.Time  `json:"paymentTime"`
@@ -234,25 +241,18 @@ type OrderResponse struct {
 }
 
 type OrderItem struct {
-	ProductID string            `json:"id"`
-	Name      string            `json:"name"`
-	Variant   []CartItemVariant `json:"variant"`
-	ImageURL  string            `json:"imageURL"`
-	Amount    int               `json:"amount"`
-	UnitPrice int               `json:"unitPrice"`
+	ProductID string `json:"id"`
+	Name      string `json:"name"`
+	Variant   string `json:"variant"`
+	ImageURL  string `json:"imageURL"`
+	Amount    int    `json:"amount"`
+	UnitPrice int    `json:"unitPrice"`
 }
 
 func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	orderID := mux.Vars(req)["id"]
-	dbOrder, err := s.Queries.LookupOrder(ctx, shop.LookupOrderParams{
-		OrderID:      orderID,
-		MatricNumber: orderID,
-		PaymentReference: sql.NullString{
-			String: orderID,
-			Valid:  true,
-		},
-	})
+	orderID := req.PathValue("id")
+	dbOrders, err := s.Queries.LookupOrder(ctx, orderID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "Invalid order ID", http.StatusNotFound)
@@ -262,51 +262,109 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	dbOrderItems, err := s.Queries.ListOrderItems(ctx, dbOrder.OrderID)
-	if err != nil {
-		slog.Error("error looking up order items", "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	var coupon *Coupon
-	if dbOrder.CouponID.Valid {
-		dbCoupon, err := s.Queries.CouponByID(ctx, dbOrder.CouponID.Int64)
+	orders := make([]Order, 0, len(dbOrders))
+	for _, dbOrder := range dbOrders {
+		dbOrderItems, err := s.Queries.ListOrderItems(ctx, dbOrder.OrderID)
 		if err != nil {
-			slog.Error("error looking up coupon", "err", err)
+			slog.Error("error looking up order items", "err", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		c := dbCouponToCoupon(dbCoupon)
-		coupon = &c
+		var coupon *Coupon
+		if dbOrder.CouponID.Valid {
+			dbCoupon, err := s.Queries.CouponByID(ctx, dbOrder.CouponID.Int64)
+			if err != nil {
+				slog.Error("error looking up coupon", "err", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			c := dbCouponToCoupon(dbCoupon)
+			coupon = &c
+		}
+		orderItems := make([]OrderItem, 0, len(dbOrderItems))
+		for _, item := range dbOrderItems {
+			orderItems = append(orderItems, OrderItem{
+				ProductID: item.ProductID,
+				Name:      item.ProductName,
+				Variant:   item.Variant,
+				ImageURL:  item.ImageUrl,
+				Amount:    int(item.Amount),
+				UnitPrice: int(item.UnitPrice),
+			})
+		}
+		emailSplit := strings.SplitN(dbOrder.Email, "@", 2)
+		emailSplit[0] = censorBack(emailSplit[0], 3, 10, ' ')
+		order := Order{
+			OrderID:          dbOrder.OrderID,
+			Name:             censorBack(dbOrder.Name, 4, 10, ' '),
+			Email:            strings.Join(emailSplit, "@"),
+			MatricNumber:     censorFront(dbOrder.MatricNumber, 4, 10, ' '),
+			PaymentReference: censorFront(dbOrder.PaymentReference.String, 8, 10, ' '),
+			Cancelled:        dbOrder.Cancelled,
+			Coupon:           coupon,
+			Items:            orderItems,
+		}
+		if dbOrder.PaymentTime.Valid {
+			order.PaymentTime = &dbOrder.PaymentTime.Time
+		}
+		if dbOrder.CollectionTime.Valid {
+			order.CollectionTime = &dbOrder.CollectionTime.Time
+		}
+		orders = append(orders, order)
 	}
-	orderItems := make([]OrderItem, 0, len(dbOrderItems))
-	for _, item := range dbOrderItems {
-		orderItems = append(orderItems, OrderItem{
-			ProductID: item.ProductID,
-			Name:      item.ProductName,
-			Variant: []CartItemVariant{
-				{Option: item.Variant},
-			},
-			ImageURL:  item.ImageUrl,
-			Amount:    int(item.Amount),
-			UnitPrice: int(item.UnitPrice),
-		})
+	if err := json.NewEncoder(w).Encode(OrderResponse{
+		Orders: orders,
+	}); err != nil {
+		slog.Error("error writing order response", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
-	order := OrderResponse{
-		OrderID:          dbOrder.OrderID,
-		Name:             dbOrder.Name,
-		MatricNumber:     dbOrder.MatricNumber,
-		PaymentReference: dbOrder.PaymentReference.String,
-		Cancelled:        dbOrder.Cancelled,
-		Coupon:           coupon,
-		Items:            orderItems,
+}
+
+func (s *Server) OrderCollect(w http.ResponseWriter, req *http.Request) {
+	if !s.authCheck(w, req) {
+		return
 	}
-	if dbOrder.PaymentTime.Valid {
-		order.PaymentTime = &dbOrder.PaymentTime.Time
+	ctx := req.Context()
+	orderID := req.PathValue("id")
+	err := s.Queries.UpdateCollectionTime(ctx, shop.UpdateCollectionTimeParams{
+		CollectionTime: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		OrderID: orderID,
+	})
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		http.Error(w, "Invalid order ID", http.StatusNotFound)
+		return
+	case err != nil:
+		slog.Error("error marking order as collected", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
-	if dbOrder.CollectionTime.Valid {
-		order.CollectionTime = &dbOrder.CollectionTime.Time
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
+	if !s.authCheck(w, req) {
+		return
 	}
+	ctx := req.Context()
+	orderID := req.PathValue("id")
+	err := s.Queries.UpdateCancelled(ctx, shop.UpdateCancelledParams{
+		Cancelled: true,
+		OrderID:   orderID,
+	})
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		http.Error(w, "Invalid order ID", http.StatusNotFound)
+		return
+	case err != nil:
+		slog.Error("error marking order as cancelled", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type CouponsResponse struct {
@@ -539,5 +597,30 @@ func dbCouponToCoupon(dbCoupon shop.Coupon) Coupon {
 		Requirements: requirements,
 		CouponCode:   dbCoupon.CouponCode,
 		Discount:     json.RawMessage(fmt.Sprintf(`{"type":"percentage","amount":%d}`, dbCoupon.DiscountPercentage)),
+	}
+}
+
+func censorBack(s string, charCount int, maxAsterisk int, delimiter byte) string {
+	idx := strings.IndexByte(s, delimiter)
+	switch {
+	case idx != -1:
+		return s[:idx+1] + strings.Repeat("*", min(len(s)-idx-1, maxAsterisk))
+	case len(s) < charCount:
+		return s
+	default:
+		return s[:charCount] + strings.Repeat("*", min(len(s)-charCount, maxAsterisk))
+	}
+}
+
+func censorFront(s string, charCount int, maxAsterisk int, delimiter byte) string {
+	idx := strings.LastIndexByte(s, delimiter)
+	switch {
+	case idx != -1:
+		return strings.Repeat("*", min(idx, maxAsterisk)) + s[idx:]
+	case len(s) < charCount:
+		return s
+	default:
+		remainingIdx := len(s) - charCount
+		return strings.Repeat("*", min(remainingIdx, maxAsterisk)) + s[remainingIdx:]
 	}
 }

@@ -6,6 +6,7 @@
 	import Options from '$lib/Options.svelte';
 	import MerchEdit from './MerchEdit.svelte';
 	import UsersEdit from './UsersEdit.svelte';
+	import OrderCollection from './OrderCollection.svelte';
 
 	onMount(() => {
 		permCheck();
@@ -23,6 +24,6 @@
 	{:else if selected === 'Admin Users'}
 		<UsersEdit />
 	{:else if selected === 'Order Collection'}
-		TODO
+		<OrderCollection />
 	{/if}
 </div>

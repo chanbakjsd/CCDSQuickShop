@@ -1,24 +1,14 @@
 <script lang="ts">
-	import { fetchCoupons, fetchProducts } from '$lib/api';
-	import type { CartItem, Coupon } from '$lib/cart';
+	import type { CartItem } from '$lib/cart';
 	import Header from '$lib/Header.svelte';
-	import type { ShopItem } from '$lib/shop';
-	import { onMount } from 'svelte';
+
+	import type { PageData } from './$types';
 	import Cart from './Cart.svelte';
 	import MerchSelection from './MerchSelection.svelte';
 
-	let items: ShopItem[] = [];
-	let coupon: Coupon[] = [];
-	onMount(() => {
-		fetchProducts().then((x) => {
-			items = x;
-		});
-		fetchCoupons().then((x) => {
-			coupons = x;
-		});
-	});
+	const { data }: { data: PageData } = $props();
+	let cart: CartItem[] = $state([]);
 
-	let cart: CartItem[] = [];
 	const addToCart = (item: CartItem) => {
 		// Try to search for existing entries and add amount instead.
 		for (let i = 0; i < cart.length; i++) {
@@ -49,10 +39,10 @@
 	<div class="left-panel">
 		<Header />
 		<div class="px-2 md:py-2">
-			<MerchSelection {items} addItem={addToCart} />
+			<MerchSelection items={data.items} addItem={addToCart} />
 		</div>
 	</div>
-	<div class="right-panel"><Cart bind:cart availableCoupons={coupon} /></div>
+	<div class="right-panel"><Cart bind:cart availableCoupons={data.coupons} /></div>
 </main>
 
 <style lang="postcss">

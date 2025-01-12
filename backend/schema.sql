@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS orders (
 	order_id          TEXT UNIQUE NOT NULL,
 	name              TEXT NOT NULL,
 	matric_number     TEXT NOT NULL,
+	email             TEXT NOT NULL,
 	payment_reference TEXT UNIQUE,
 	payment_time      DATETIME,
 	collection_time   DATETIME,

@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { type CartItem, formatPrice } from '$lib/cart';
+	import { type CartItem, type OrderItem, formatPrice } from '$lib/cart';
 	import TrashIcon from '$lib/TrashIcon.svelte';
 
-	export let item: CartItem;
+	export let item: CartItem | OrderItem;
 	export let editable: boolean;
 	export let deleteItem: (() => void) | undefined;
 
-	$: itemVariant = item.variant.map((x) => x.option).join(', ');
+	$: itemVariant =
+		typeof item.variant === 'string' ? item.variant : item.variant.map((x) => x.option).join(', ');
 </script>
 
 <div class="flex w-full items-center gap-2">

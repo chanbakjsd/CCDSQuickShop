@@ -10,26 +10,37 @@
 
 	const validateName = (name: string) => name !== '';
 	const validateMatricNum = (matricNum: string) => /^[UG]\d{7}[A-Z]$/.test(matricNum);
+	const validateEmail = (email: string) => /^[A-Za-z0-9]+$/.test(email);
 
 	const findBestCoupon = (cart: CartItem[], coupons: Coupon[]) => {
-		return coupons.reduce<Coupon | undefined>((prev, candidate) => {
+		return coupons.reduce<Coupon | null>((prev, candidate) => {
 			// Choose the better coupon (prev).
 			if (prev && applyCoupon(cart, prev) < applyCoupon(cart, candidate)) return prev;
 			// Use the candidate if we can.
 			if (candidate.requirements.every((x) => checkRequirement(cart, x))) return candidate;
 			// Otherwise, use whatever we had previously.
 			return prev;
-		}, undefined);
+		}, null);
 	};
 	$: bestCoupon = findBestCoupon(cart, availableCoupons);
 
 	let userName = '';
 	let userMatricNumber = '';
+	let userEmail = '';
 	$: checkoutValid =
-		cart.length > 0 && validateName(userName) && validateMatricNum(userMatricNumber);
+		cart.length > 0 &&
+		validateName(userName) &&
+		validateMatricNum(userMatricNumber) &&
+		validateEmail(userEmail);
 
 	const processCheckout = async () => {
-		const checkoutURL = await checkout(cart, userName, userMatricNumber, bestCoupon?.couponCode);
+		const checkoutURL = await checkout(
+			cart,
+			userName,
+			userMatricNumber,
+			userEmail + '@e.ntu.edu.sg',
+			bestCoupon?.couponCode
+		);
 		window.location.href = checkoutURL;
 	};
 </script>
@@ -51,6 +62,12 @@
 		<div class="grid grid-cols-1 xl:grid-cols-2">
 			<Input label="Name" bind:value={userName} validate={validateName} />
 			<Input label="Matric Number" bind:value={userMatricNumber} validate={validateMatricNum} />
+			<div class="flex items-end xl:col-span-2">
+				<div class="min-w-0 flex-grow">
+					<Input label="Email" bind:value={userEmail} validate={validateEmail} />
+				</div>
+				<span class="text-lg">@e.ntu.edu.sg</span>
+			</div>
 		</div>
 		<Button disabled={!checkoutValid} on:click={processCheckout}>Checkout</Button>
 		<p class="text-center text-xs italic text-gray-500">
