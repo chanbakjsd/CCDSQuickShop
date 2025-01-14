@@ -90,7 +90,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	case s.Config.Forwarder != nil:
 		mux.Handle("/", s.Config.Forwarder)
 	case s.Config.StaticDir != nil:
-		mux.Handle("/", http.FileServer(s.Config.StaticDir))
+		mux.Handle("/", http.FileServer(singlePageAppFS{s.Config.StaticDir}))
 	}
 	return mux
 }
@@ -619,4 +619,17 @@ func censorFront(s string, charCount int, maxAsterisk int, delimiter byte) strin
 		remainingIdx := len(s) - charCount
 		return strings.Repeat("*", min(remainingIdx, maxAsterisk)) + s[remainingIdx:]
 	}
+}
+
+var _ http.FileSystem = singlePageAppFS{}
+
+type singlePageAppFS struct {
+	fs http.FileSystem
+}
+
+func (f singlePageAppFS) Open(path string) (http.File, error) {
+	if f, err := f.fs.Open(path); err == nil {
+		return f, nil
+	}
+	return f.fs.Open("index.html")
 }
