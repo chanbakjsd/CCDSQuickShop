@@ -47,3 +47,12 @@ CREATE TABLE IF NOT EXISTS order_items (
 	-- JSON of the selected variants.
 	variant      TEXT    NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS store_closures (
+	id                INTEGER PRIMARY KEY,
+	start_time        DATETIME NOT NULL,
+	end_time          DATETIME NOT NULL,
+	user_message      TEXT NOT NULL,
+	allow_order_check BOOLEAN NOT NULL,
+	deleted           BOOLEAN NOT NULL
+);

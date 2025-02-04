@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
 )
 
 type CouponsResponse struct {
@@ -20,6 +23,9 @@ type Coupon struct {
 }
 
 func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
+	if !s.closureCheck(w, req) {
+		return
+	}
 	dbCoupons, err := s.Queries.ListPublicCoupons(req.Context())
 	switch {
 	case errors.Is(err, context.Canceled):
@@ -43,6 +49,9 @@ func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) CouponLookup(w http.ResponseWriter, req *http.Request) {
+	if !s.closureCheck(w, req) {
+		return
+	}
 	couponCode := req.PathValue("id")
 	ctx := req.Context()
 	dbCoupon, err := s.Queries.CouponEnabledByCode(ctx, couponCode)
@@ -59,5 +68,17 @@ func (s *Server) CouponLookup(w http.ResponseWriter, req *http.Request) {
 	if err := json.NewEncoder(w).Encode(coupon); err != nil {
 		slog.Error("error writing coupon lookup response", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func dbCouponToCoupon(dbCoupon shop.Coupon) Coupon {
+	requirements := make([]json.RawMessage, 0)
+	if dbCoupon.MinPurchaseQuantity.Valid {
+		requirements = append(requirements, json.RawMessage(fmt.Sprintf(`{"type":"purchase_count","amount":%d}`, dbCoupon.MinPurchaseQuantity.Int64)))
+	}
+	return Coupon{
+		Requirements: requirements,
+		CouponCode:   dbCoupon.CouponCode,
+		Discount:     json.RawMessage(fmt.Sprintf(`{"type":"percentage","amount":%d}`, dbCoupon.DiscountPercentage)),
 	}
 }

@@ -4,6 +4,20 @@ import { ShopItem } from "./shop"
 
 const API_URL = `${import.meta.env.VITE_URL}/api/v0`
 
+export class StoreClosureError extends Error {
+	end_time: number | null
+	user_message: string
+	allow_order: boolean
+
+	constructor(end_time: number | null, message: string, allow_order: boolean) {
+		super(`The store is currently closed. Admin reason: ${message}`);
+		this.name = "StoreClosureError";
+		this.end_time = end_time
+		this.user_message = message
+		this.allow_order = allow_order
+	}
+}
+
 const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: RequestInit): Promise<z.infer<T>> => {
 	const resp = await fetch(path, params)
 	switch (resp.status) {
@@ -19,8 +33,23 @@ const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: Req
 			throw new Error(`unexpected status code ${resp.status}: ${val}`)
 	}
 	const val = await resp.json()
-	return typ.parse(val)
+	const parseResult = typ.safeParse(val)
+	if (parseResult.success) {
+		return parseResult.data
+	}
+	const err = APIStoreClosureError.safeParse(val)
+	if (err.success) {
+		throw new StoreClosureError(err.data.end_time, err.data.message, err.data.show_order_check)
+	}
+	throw parseResult.error
 }
+
+const APIStoreClosureError = z.object({
+	type: z.literal("store_closure"),
+	end_time: z.number().nullable(),
+	message: z.string(),
+	show_order_check: z.boolean(),
+})
 
 const CheckoutResponse = z.object({
 	checkoutURL: z.string(),
@@ -140,3 +169,28 @@ export const uploadImage = async (img: Blob): Promise<string> => {
 	})
 	return resp.url
 }
+
+const StoreClosure = z.object({
+	id: z.string(),
+	start_time: z.coerce.date(),
+	end_time: z.coerce.date(),
+	message: z.string(),
+	show_order_check: z.boolean(),
+})
+export type StoreClosure = z.infer<typeof StoreClosure>;
+
+const StoreClosureResponse = z.object({
+	closures: StoreClosure.array(),
+})
+export const listStoreClosures = async (): Promise<StoreClosure[]> => {
+	const resp = await handleFetch(StoreClosureResponse, `${API_URL}/closures`)
+	return resp.closures
+}
+
+export const updateStoreClosure = async (closure: StoreClosure): Promise<StoreClosure> => {
+	return handleFetch(StoreClosure, `${API_URL}/closures`, {
+		method: 'POST',
+		body: JSON.stringify(closure),
+	})
+}
+

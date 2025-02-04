@@ -8,6 +8,7 @@ package shop
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const associateOrder = `-- name: AssociateOrder :exec
@@ -274,6 +275,33 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (i
 	return product_id, err
 }
 
+const createStoreClosure = `-- name: CreateStoreClosure :one
+INSERT INTO store_closures (
+	start_time, end_time, user_message, allow_order_check, deleted
+) VALUES (
+	?, ?, ?, ?, FALSE
+) RETURNING id
+`
+
+type CreateStoreClosureParams struct {
+	StartTime       time.Time
+	EndTime         time.Time
+	UserMessage     string
+	AllowOrderCheck bool
+}
+
+func (q *Queries) CreateStoreClosure(ctx context.Context, arg CreateStoreClosureParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createStoreClosure,
+		arg.StartTime,
+		arg.EndTime,
+		arg.UserMessage,
+		arg.AllowOrderCheck,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const deleteAdminUser = `-- name: DeleteAdminUser :exec
 DELETE FROM
 	admin_users
@@ -283,6 +311,20 @@ WHERE
 
 func (q *Queries) DeleteAdminUser(ctx context.Context, email string) error {
 	_, err := q.db.ExecContext(ctx, deleteAdminUser, email)
+	return err
+}
+
+const deleteStoreClosure = `-- name: DeleteStoreClosure :exec
+UPDATE
+	store_closures
+SET
+	deleted = TRUE
+WHERE
+	id = ?
+`
+
+func (q *Queries) DeleteStoreClosure(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteStoreClosure, id)
 	return err
 }
 
@@ -456,6 +498,45 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 	return items, nil
 }
 
+const listStoreClosures = `-- name: ListStoreClosures :many
+SELECT
+	id, start_time, end_time, user_message, allow_order_check, deleted
+FROM
+	store_closures
+WHERE
+	deleted = FALSE
+`
+
+func (q *Queries) ListStoreClosures(ctx context.Context) ([]StoreClosure, error) {
+	rows, err := q.db.QueryContext(ctx, listStoreClosures)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StoreClosure
+	for rows.Next() {
+		var i StoreClosure
+		if err := rows.Scan(
+			&i.ID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.UserMessage,
+			&i.AllowOrderCheck,
+			&i.Deleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lookupOrder = `-- name: LookupOrder :many
 SELECT
 	id, order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
@@ -552,6 +633,32 @@ type SetProductEnabledParams struct {
 func (q *Queries) SetProductEnabled(ctx context.Context, arg SetProductEnabledParams) error {
 	_, err := q.db.ExecContext(ctx, setProductEnabled, arg.Enabled, arg.ProductID)
 	return err
+}
+
+const storeClosureCurrent = `-- name: StoreClosureCurrent :one
+SELECT
+	id, start_time, end_time, user_message, allow_order_check, deleted
+FROM
+	store_closures
+WHERE
+	?1 >= start_time
+	AND ?1 <= end_time
+	AND deleted = FALSE
+LIMIT 1
+`
+
+func (q *Queries) StoreClosureCurrent(ctx context.Context, currentTime time.Time) (StoreClosure, error) {
+	row := q.db.QueryRowContext(ctx, storeClosureCurrent, currentTime)
+	var i StoreClosure
+	err := row.Scan(
+		&i.ID,
+		&i.StartTime,
+		&i.EndTime,
+		&i.UserMessage,
+		&i.AllowOrderCheck,
+		&i.Deleted,
+	)
+	return i, err
 }
 
 const updateCancelled = `-- name: UpdateCancelled :one
@@ -664,6 +771,38 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.VariantImageUrls,
 		arg.Enabled,
 		arg.ProductID,
+	)
+	return err
+}
+
+const updateStoreClosure = `-- name: UpdateStoreClosure :exec
+UPDATE
+	store_closures
+SET
+	start_time = ?,
+	end_time = ?,
+	user_message = ?,
+	allow_order_check = ?
+WHERE
+	id = ?
+	AND deleted = FALSE
+`
+
+type UpdateStoreClosureParams struct {
+	StartTime       time.Time
+	EndTime         time.Time
+	UserMessage     string
+	AllowOrderCheck bool
+	ID              int64
+}
+
+func (q *Queries) UpdateStoreClosure(ctx context.Context, arg UpdateStoreClosureParams) error {
+	_, err := q.db.ExecContext(ctx, updateStoreClosure,
+		arg.StartTime,
+		arg.EndTime,
+		arg.UserMessage,
+		arg.AllowOrderCheck,
+		arg.ID,
 	)
 	return err
 }

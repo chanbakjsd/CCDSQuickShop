@@ -6,6 +6,7 @@ package shop
 
 import (
 	"database/sql"
+	"time"
 )
 
 type AdminUser struct {
@@ -54,4 +55,13 @@ type Product struct {
 	Variants         string
 	VariantImageUrls string
 	Enabled          bool
+}
+
+type StoreClosure struct {
+	ID              int64
+	StartTime       time.Time
+	EndTime         time.Time
+	UserMessage     string
+	AllowOrderCheck bool
+	Deleted         bool
 }

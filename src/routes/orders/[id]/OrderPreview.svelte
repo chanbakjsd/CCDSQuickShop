@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Order } from '$lib/api';
+	import { formatDate } from '$lib/util';
 	import Button from '$lib/Button.svelte';
 	import IconChevronDown from '$lib/IconChevronDown.svelte';
 	import IconChevronUp from '$lib/IconChevronUp.svelte';
@@ -17,12 +18,6 @@
 	};
 
 	$: maxHeight = expanded && content ? `${content.clientHeight}px` : '0px';
-	const padZero = (s: number) => '0'.repeat(2 - (s + '').length) + s;
-	const formatDate = (date: Date | null) =>
-		date
-			? `${date.getFullYear()}-${padZero(date.getMonth() + 1)}-${padZero(date.getDate())} ${padZero(date.getHours())}:${padZero(date.getMinutes())}:${padZero(date.getSeconds())}`
-			: 'N/A';
-
 	$: orderStatus =
 		order.collectionTime !== null
 			? ('COLLECTED' as const)

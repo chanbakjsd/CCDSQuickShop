@@ -145,6 +145,9 @@ func (s *Server) checkAndFulfill(ctx context.Context, sessionID string) (string,
 }
 
 func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
+	if !s.closureCheck(w, req) {
+		return
+	}
 	ctx := req.Context()
 	var checkoutReq CheckoutRequest
 	if err := json.NewDecoder(req.Body).Decode(&checkoutReq); err != nil {

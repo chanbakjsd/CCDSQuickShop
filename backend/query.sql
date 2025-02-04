@@ -221,3 +221,49 @@ FROM
 	order_items
 WHERE
 	order_id = ?;
+
+-- name: CreateStoreClosure :one
+INSERT INTO store_closures (
+	start_time, end_time, user_message, allow_order_check, deleted
+) VALUES (
+	?, ?, ?, ?, FALSE
+) RETURNING id;
+
+-- name: StoreClosureCurrent :one
+SELECT
+	*
+FROM
+	store_closures
+WHERE
+	@current_time >= start_time
+	AND @current_time <= end_time
+	AND deleted = FALSE
+LIMIT 1;
+
+-- name: ListStoreClosures :many
+SELECT
+	*
+FROM
+	store_closures
+WHERE
+	deleted = FALSE;
+
+-- name: UpdateStoreClosure :exec
+UPDATE
+	store_closures
+SET
+	start_time = ?,
+	end_time = ?,
+	user_message = ?,
+	allow_order_check = ?
+WHERE
+	id = ?
+	AND deleted = FALSE;
+
+-- name: DeleteStoreClosure :exec
+UPDATE
+	store_closures
+SET
+	deleted = TRUE
+WHERE
+	id = ?;
