@@ -5,6 +5,7 @@
 	import Options from '$lib/Options.svelte';
 	import Button from '$lib/Button.svelte';
 	import MerchList from '$lib/MerchList.svelte';
+	import ZoomableImage from '$lib/ZoomableImage.svelte';
 
 	export let items: ShopItem[];
 	export let addItem: (item: CartItem) => void;
@@ -52,30 +53,35 @@
 		if (!cartItem) return;
 		addItem({ ...cartItem });
 	};
+
+	$: previewImage = selectedItem ? resolveImageURL(selectedItem, activePreviewVariant) : '';
 </script>
 
 <div class="flex flex-col gap-4">
 	<MerchList {items} variants={previewVariants} bind:value={activeMerch} />
 	{#if selectedItem}
 		<hr class="border-gray-300" transition:fade />
-		<div class="flex flex-col gap-2" transition:fly={{ y: 100 }}>
-			<p class="text-3xl">{selectedItem.name}</p>
-			<p class="text-xl">
-				S$ {formatPrice(tentativePrice(selectedItem, activePreviewVariant) / 100)}
-			</p>
-			<div class="options">
-				{#each selectedItem.variants as variant}
-					<span class="py-1 transition-all">{variant.type}</span>
-					<Options
-						options={variant.options}
-						bind:value={chosenVariants[activeMerch][variant.type]}
-						bind:previewValue={activePreviewVariant[variant.type]}
-					/>
-				{/each}
+		<div class="flex justify-between gap-2" transition:fly={{ y: 100 }}>
+			<div class="flex flex-col gap-2">
+				<p class="text-3xl">{selectedItem.name}</p>
+				<p class="text-xl">
+					S$ {formatPrice(tentativePrice(selectedItem, activePreviewVariant) / 100)}
+				</p>
+				<div class="options">
+					{#each selectedItem.variants as variant}
+						<span class="py-1 transition-all">{variant.type}</span>
+						<Options
+							options={variant.options}
+							bind:value={chosenVariants[activeMerch][variant.type]}
+							bind:previewValue={activePreviewVariant[variant.type]}
+						/>
+					{/each}
+				</div>
+				<div class="mt-2">
+					<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
+				</div>
 			</div>
-			<div class="mt-2">
-				<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
-			</div>
+			<ZoomableImage imageURL={previewImage} cls="size-48" name={selectedItem.name} />
 		</div>
 	{/if}
 </div>

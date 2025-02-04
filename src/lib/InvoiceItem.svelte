@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { type CartItem, type OrderItem, formatPrice } from '$lib/cart';
 	import TrashIcon from '$lib/TrashIcon.svelte';
+	import ZoomableImage from './ZoomableImage.svelte';
 
 	export let item: CartItem | OrderItem;
 	export let editable: boolean;
@@ -11,7 +12,7 @@
 </script>
 
 <div class="flex w-full items-center gap-2">
-	<img src={item.imageURL} width="400" height="400" alt="Image of {item.name}" class="size-16" />
+	<ZoomableImage imageURL={item.imageURL} name={item.name} cls="size-16" />
 	<div class="flex w-full flex-col">
 		<p>{item.name}</p>
 		{#if itemVariant}
