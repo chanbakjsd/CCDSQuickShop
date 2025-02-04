@@ -24,6 +24,6 @@
 		>
 			<IconX />
 		</span>
-		<img class="h-full w-full" alt={`Picture of ${name}`} src={imageURL} />
+		<img class="h-full w-full object-contain" alt={`Picture of ${name}`} src={imageURL} />
 	</button>
 {/if}
