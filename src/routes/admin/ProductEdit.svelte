@@ -2,6 +2,7 @@
 	import Button from '$lib/Button.svelte';
 	import type { ShopItem } from '$lib/shop';
 	import TrashIcon from '$lib/TrashIcon.svelte';
+	import ImageUpload from './ImageUpload.svelte';
 
 	export let product: ShopItem;
 	export let updateProduct: () => void;
@@ -63,7 +64,7 @@
 	<span>Base Price (cents)</span>
 	<input type="number" bind:value={product.basePrice} />
 	<span>Default Image URL</span>
-	<input class="input-url" bind:value={product.defaultImageURL} />
+	<ImageUpload bind:value={product.defaultImageURL} />
 	<span class="header">Variants</span>
 	{#each product.variants as variant, i}
 		<div class="flex gap-x-2 self-start">
@@ -98,7 +99,7 @@
 					</select>
 				{/each}
 			</div>
-			<input class="input-url" bind:value={product.imageURLs[i].url} />
+			<ImageUpload bind:value={product.imageURLs[i].url} />
 		</div>
 	{/each}
 	<span class="col-span-2 flex">
@@ -114,9 +115,6 @@
 	}
 	input {
 		@apply max-w-64 border border-black px-1;
-	}
-	input.input-url {
-		@apply max-w-lg;
 	}
 	input[type='checkbox'] {
 		@apply justify-self-start;

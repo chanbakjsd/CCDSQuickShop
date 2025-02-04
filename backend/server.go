@@ -4,13 +4,20 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -77,6 +84,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	// Admin paths.
 	mux.HandleFunc("GET /api/v0/auth", s.Auth)
 	mux.HandleFunc("GET /api/v0/auth/callback", s.AuthCallback)
+	mux.HandleFunc("POST /api/v0/image_upload", s.ImageUpload)
 	mux.HandleFunc("POST /api/v0/orders/{id}/collect", s.OrderCollect)
 	mux.HandleFunc("POST /api/v0/orders/{id}/cancel", s.OrderCancel)
 	mux.HandleFunc("GET /api/v0/perm_check", s.PermissionCheck)
@@ -84,6 +92,11 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/v0/users", s.CreateAdminUser)
 	mux.HandleFunc("DELETE /api/v0/users", s.DeleteAdminUser)
 	mux.Handle("/api/", http.NotFoundHandler())
+	if s.Config.ImageDir != "" {
+		mux.Handle("GET /content/", http.StripPrefix("/content/", noDirListing(http.FileServer(http.Dir(s.Config.ImageDir)))))
+	} else {
+		slog.Warn("not serving image content, image directory not configured")
+	}
 	switch {
 	case s.Config.Forwarder != nil && s.Config.StaticDir != nil:
 		panic("forwarder and static directory both declared")
@@ -449,6 +462,82 @@ func (s *Server) DeleteAdminUser(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+const (
+	MaxImageSizeBytes        = 8 * 1024 * 1024
+	MaxImageSizePixel        = 16384
+	MaxImagePixelAfterResize = 1024
+)
+
+type ImageUploadResponse struct {
+	URL string `json:"url"`
+}
+
+func (s *Server) ImageUpload(w http.ResponseWriter, req *http.Request) {
+	if !s.authCheck(w, req) {
+		return
+	}
+	req.Body = http.MaxBytesReader(w, req.Body, MaxImageSizeBytes)
+	if err := req.ParseMultipartForm(MaxImageSizeBytes); err != nil {
+		slog.Error("error parsing multipart form", "err", err)
+		http.Error(w, "Invalid Request (is file too large?)", http.StatusBadRequest)
+		return
+	}
+	file, _, err := req.FormFile("file")
+	if err != nil {
+		slog.Error("error parsing file field", "err", err)
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+	cfg, _, err := image.DecodeConfig(file)
+	if err != nil {
+		slog.Error("error decoding image", "err", err)
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+	if cfg.Width > MaxImageSizePixel || cfg.Height > MaxImageSizePixel {
+		slog.Error("image size too big", "width", cfg.Width, "height", cfg.Height, "max", MaxImageSizePixel)
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		slog.Error("error seeking to start", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	img, _, err := image.Decode(file)
+	if err != nil {
+		slog.Error("error decoding image", "err", err)
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+	imageID, err := randomImageID()
+	if err != nil {
+		slog.Error("error generating random image ID", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	img = squareImage(img, MaxImagePixelAfterResize)
+	imageName := imageID + ".png"
+	f, err := os.Create(path.Join(s.Config.ImageDir, imageName))
+	if err != nil {
+		slog.Error("error creating image file", "dir", s.Config.ImageDir, "image_name", imageName, "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		slog.Error("error encoding PNG file", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if err := json.NewEncoder(w).Encode(ImageUploadResponse{
+		URL: s.Config.FrontendURL + "/content/" + imageName,
+	}); err != nil {
+		slog.Error("error writing image upload response", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
 func (s *Server) PermissionCheck(w http.ResponseWriter, req *http.Request) {
 	if !s.authCheck(w, req) {
 		return
@@ -632,4 +721,22 @@ func (f singlePageAppFS) Open(path string) (http.File, error) {
 		return f, nil
 	}
 	return f.fs.Open("index.html")
+}
+
+func noDirListing(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasSuffix(req.URL.Path, "/") || req.URL.Path == "" {
+			http.NotFound(w, req)
+			return
+		}
+		next.ServeHTTP(w, req)
+	}
+}
+
+func randomImageID() (string, error) {
+	var buf [8]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf[:]), nil
 }

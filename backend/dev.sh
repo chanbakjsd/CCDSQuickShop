@@ -30,6 +30,10 @@ if [ -z "$SESSION_SECRET" ]; then
 	echo "Session Secret not provided, generating random value."
 	SESSION_SECRET=$(cat /dev/urandom | base64 | head -c 32)
 fi
+if [ -z "$IMAGE_DIRECTORY" ]; then
+	echo "Image directory not provided, using ./image"
+	IMAGE_DIRECTORY="$SRC/image"
+fi
 
 export SESSION_SECRET
 go run . \
@@ -37,4 +41,5 @@ go run . \
 	"-client-id=$GOOGLE_CLIENT_ID" \
 	"-client-secret=$GOOGLE_CLIENT_SECRET" \
 	"-stripe-secret=$STRIPE_SECRET_KEY" \
-	"-stripe-webhook=$STRIPE_WEBHOOK_SECRET"
+	"-stripe-webhook=$STRIPE_WEBHOOK_SECRET" \
+	"-image-dir=$IMAGE_DIRECTORY"

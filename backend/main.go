@@ -20,6 +20,7 @@ func main() {
 	googleClientSecret := flag.String("client-secret", "", "Google Client Secret")
 	stripeSecretKey := flag.String("stripe-secret", "", "Stripe Secret Key")
 	stripeWebhookSecret := flag.String("stripe-webhook", "", "Stripe Webhook Secret")
+	imageDir := flag.String("image-dir", "", "Image directory")
 	flag.Parse()
 
 	cfg := &ServerConfig{
@@ -34,12 +35,21 @@ func main() {
 	if *forwardURL != "" {
 		parsedURL, err := url.Parse(*forwardURL)
 		if err != nil {
-			slog.Error("error parsing URL to frorward to", "err", err)
+			slog.Error("error parsing URL to forward to", "err", err)
 		}
 		cfg.Forwarder = httputil.NewSingleHostReverseProxy(parsedURL)
 	} else {
 		static := http.Dir(*staticDir)
 		cfg.StaticDir = &static
+	}
+	if *imageDir != "" {
+		if err := os.MkdirAll(*imageDir, 0o755); err != nil {
+			slog.Error("error creating image directory", "err", err)
+			os.Exit(1)
+		}
+		cfg.ImageDir = *imageDir
+	} else {
+		slog.Warn("image directory not configured")
 	}
 
 	if err := run(cfg); err != nil {
@@ -52,6 +62,7 @@ type ServerConfig struct {
 	ListenAddr     string
 	Sqlite3ConnStr string
 	StaticDir      *http.Dir
+	ImageDir       string
 	Forwarder      *httputil.ReverseProxy
 
 	GoogleClientID      string

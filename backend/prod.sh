@@ -7,4 +7,5 @@ export SESSION_SECRET
 	"-client-id=$GOOGLE_CLIENT_ID" \
 	"-client-secret=$GOOGLE_CLIENT_SECRET" \
 	"-stripe-secret=$STRIPE_SECRET_KEY" \
-	"-stripe-webhook=$STRIPE_WEBHOOK_SECRET"
+	"-stripe-webhook=$STRIPE_WEBHOOK_SECRET" \
+	"-image-dir=/app/content"

@@ -127,3 +127,16 @@ export const collectOrder = (orderID: string): Promise<void> => handleFetch(z.un
 export const cancelOrder = (orderID: string): Promise<void> => handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/cancel`, {
 	method: "POST",
 })
+
+const ImageUploadResponse = z.object({
+	url: z.string()
+})
+export const uploadImage = async (img: Blob): Promise<string> => {
+	const data = new FormData()
+	data.append("file", img)
+	const resp = await handleFetch(ImageUploadResponse, `${API_URL}/image_upload`, {
+		method: "POST",
+		body: data,
+	})
+	return resp.url
+}
