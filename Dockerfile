@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1-labs
+
 FROM node:23-alpine AS frontend
 ARG VITE_URL="https://merch.ntuscds.com"
 ENV PNPM_HOME="/pnpm"
