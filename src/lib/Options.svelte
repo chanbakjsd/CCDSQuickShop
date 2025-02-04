@@ -56,6 +56,8 @@
 <style lang="postcss">
 	button {
 		@apply min-w-8 bg-gray-200 px-2 py-1 transition-all hover:bg-gray-300;
+		word-break: break-word;
+		overflow-break: break-word;
 	}
 	.selected {
 		@apply bg-white hover:bg-white;

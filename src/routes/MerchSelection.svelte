@@ -62,7 +62,7 @@
 	{#if selectedItem}
 		<hr class="border-gray-300" transition:fade />
 		<div class="flex justify-between gap-2" transition:fly={{ y: 100 }}>
-			<div class="flex flex-col gap-2">
+			<div class="flex min-w-0 flex-col gap-2">
 				<p class="text-3xl">{selectedItem.name}</p>
 				<p class="text-xl">
 					S$ {formatPrice(tentativePrice(selectedItem, activePreviewVariant) / 100)}
@@ -81,7 +81,7 @@
 					<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
 				</div>
 			</div>
-			<ZoomableImage imageURL={previewImage} cls="size-48" name={selectedItem.name} />
+			<ZoomableImage imageURL={previewImage} cls="flex-shrink-0 size-48" name={selectedItem.name} />
 		</div>
 	{/if}
 </div>

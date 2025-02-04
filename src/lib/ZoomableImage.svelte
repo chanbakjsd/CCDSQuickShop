@@ -10,8 +10,8 @@
 	const hideOverlay = () => (overlay = false);
 </script>
 
-<button on:click={showOverlay} class="cursor-zoom-in">
-	<img class={cls} alt={`Picture of ${name}`} src={imageURL} />
+<button on:click={showOverlay} class={`${cls} cursor-zoom-in`}>
+	<img alt={`Picture of ${name}`} src={imageURL} />
 </button>
 
 {#if overlay}
