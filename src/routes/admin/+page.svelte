@@ -4,6 +4,7 @@
 	import { permCheck } from '$lib/api';
 	import Header from '$lib/Header.svelte';
 	import Options from '$lib/Options.svelte';
+	import CouponEdit from './CouponEdit.svelte';
 	import ClosuresEdit from './ClosuresEdit.svelte';
 	import MerchEdit from './MerchEdit.svelte';
 	import UsersEdit from './UsersEdit.svelte';
@@ -17,7 +18,8 @@
 		{ text: 'Store Closures' },
 		{ text: 'Merch' },
 		{ text: 'Admin Users' },
-		{ text: 'Order Collection' }
+		{ text: 'Order Collection' },
+		{ text: 'Coupons' }
 	];
 	let selected: string | undefined = undefined;
 </script>
@@ -33,5 +35,7 @@
 		<UsersEdit />
 	{:else if selected === 'Order Collection'}
 		<OrderCollection />
+	{:else if selected === 'Coupons'}
+		<CouponEdit />
 	{/if}
 </div>

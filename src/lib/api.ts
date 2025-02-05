@@ -1,5 +1,5 @@
 import { z, type ZodType } from "zod"
-import { Coupon, OrderItem, type CartItem } from "./cart"
+import { AdminCoupon, Coupon, OrderItem, type CartItem } from "./cart"
 import { ShopItem } from "./shop"
 
 const API_URL = `${import.meta.env.VITE_URL}/api/v0`
@@ -91,14 +91,23 @@ export const fetchCoupon = (couponCode: string): Promise<Coupon> => handleFetch(
 const CouponsResponse = z.object({
 	coupons: Coupon.array(),
 })
-export const fetchCoupons = async (includeDisabled?: boolean): Promise<Coupon[]> => {
-	let path = `${API_URL}/coupons`
-	if (includeDisabled) {
-		path += "?include_disabled=1"
-	}
-	const resp = await handleFetch(CouponsResponse, path)
+export const fetchCoupons = async (): Promise<Coupon[]> => {
+	const resp = await handleFetch(CouponsResponse, `${API_URL}/coupons`)
 	return resp.coupons
 }
+
+const AdminCouponsResponse = z.object({
+	coupons: AdminCoupon.array(),
+})
+export const fetchAdminCoupons = async (): Promise<AdminCoupon[]> => {
+	const resp = await handleFetch(AdminCouponsResponse, `${API_URL}/coupons?include_disabled=1`)
+	return resp.coupons
+}
+
+export const updateCoupon = async (coupon: AdminCoupon): Promise<AdminCoupon> => handleFetch(AdminCoupon, `${API_URL}/coupons`, {
+	method: 'POST',
+	body: JSON.stringify(coupon),
+})
 
 export const permCheck = async (): Promise<void> => {
 	return handleFetch(z.undefined(), `${API_URL}/perm_check`)

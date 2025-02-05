@@ -71,6 +71,7 @@
 					placeholder="AB1234"
 					class="w-16 border-b border-brand text-center"
 					bind:value={orderID}
+					maxlength="6"
 				/>
 			</form>
 			<Button size="md" onClick={visitOrder} disabled={!orderIDValid}>Go</Button>

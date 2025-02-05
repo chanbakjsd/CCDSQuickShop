@@ -18,6 +18,7 @@ type Coupon struct {
 	CouponCode          string
 	StripeID            string
 	MinPurchaseQuantity sql.NullInt64
+	EmailMatch          sql.NullString
 	DiscountPercentage  int64
 	Enabled             bool
 	Public              bool

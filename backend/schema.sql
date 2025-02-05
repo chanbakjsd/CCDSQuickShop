@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 	coupon_code           TEXT NOT NULL,
 	stripe_id             TEXT NOT NULL,
 	min_purchase_quantity INTEGER,
+	email_match           TEXT,
 	discount_percentage   INTEGER NOT NULL,
 	enabled               BOOLEAN NOT NULL,
 	public                BOOLEAN NOT NULL,

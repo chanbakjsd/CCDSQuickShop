@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { checkout, fetchCoupon } from '$lib/api';
-	import { type CartItem, type Coupon, applyCoupon, checkRequirement } from '$lib/cart';
+	import {
+		EMAIL_SUFFIX,
+		type CartItem,
+		type Coupon,
+		applyCoupon,
+		checkRequirement
+	} from '$lib/cart';
 	import Button from '$lib/Button.svelte';
 	import Input from '$lib/Input.svelte';
 	import Invoice from '$lib/Invoice.svelte';
@@ -21,7 +27,8 @@
 			// Choose the better coupon (prev).
 			if (prev && applyCoupon(cart, prev) < applyCoupon(cart, candidate)) return prev;
 			// Use the candidate if we can.
-			if (candidate.requirements.every((x) => checkRequirement(cart, x))) return candidate;
+			if (candidate.requirements.every((x) => checkRequirement(cart, userEmail, x)))
+				return candidate;
 			// Otherwise, use whatever we had previously.
 			return prev;
 		}, null);
@@ -31,7 +38,7 @@
 		if (!candidate) {
 			candidate = await fetchCoupon(couponCode);
 		}
-		if (candidate.requirements.every((x) => checkRequirement(cart, x))) return candidate;
+		if (candidate.requirements.every((x) => checkRequirement(cart, userEmail, x))) return candidate;
 		throw new Error('Coupon requirement not matched');
 	};
 
@@ -52,8 +59,13 @@
 			coupon = undefined;
 			return;
 		}
+		// Mark user email as used as it is used in the Promise which is otherwise not captured by $effect.
+		userEmail;
 		searchCoupon(cart, couponCode)
 			.then((x) => {
+				if (!x.requirements.every((req) => checkRequirement(cart, userEmail, req))) {
+					throw new Error('Requirement not fulfilled.');
+				}
 				coupon = x;
 			})
 			.catch(() => {
@@ -76,7 +88,7 @@
 			cart,
 			userName,
 			userMatricNumber,
-			userEmail + '@e.ntu.edu.sg',
+			userEmail + EMAIL_SUFFIX,
 			coupon?.couponCode
 		);
 		window.location.href = checkoutURL;
@@ -107,7 +119,7 @@
 				<div class="min-w-0 flex-grow">
 					<Input label="Email" bind:value={userEmail} validate={validateEmail} />
 				</div>
-				<span class="text-lg">@e.ntu.edu.sg</span>
+				<span class="text-lg">{EMAIL_SUFFIX}</span>
 			</div>
 			<div class="xl:col-span-2">
 				<Input label="Coupon Code" bind:value={couponCode} invalid={couponConfirmedInvalid} />

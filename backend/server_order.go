@@ -75,7 +75,7 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
-			c := dbCouponToCoupon(dbCoupon)
+			c := s.dbCouponToCoupon(dbCoupon, false)
 			coupon = &c
 		}
 		orderItems := make([]OrderItem, 0, len(dbOrderItems))

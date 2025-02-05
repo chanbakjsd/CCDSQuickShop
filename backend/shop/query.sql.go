@@ -97,7 +97,7 @@ func (q *Queries) CountAdminUsers(ctx context.Context) (int64, error) {
 
 const couponByID = `-- name: CouponByID :one
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
 FROM
 	coupons
 WHERE
@@ -112,6 +112,7 @@ func (q *Queries) CouponByID(ctx context.Context, couponID int64) (Coupon, error
 		&i.CouponCode,
 		&i.StripeID,
 		&i.MinPurchaseQuantity,
+		&i.EmailMatch,
 		&i.DiscountPercentage,
 		&i.Enabled,
 		&i.Public,
@@ -122,7 +123,7 @@ func (q *Queries) CouponByID(ctx context.Context, couponID int64) (Coupon, error
 
 const couponEnabledByCode = `-- name: CouponEnabledByCode :one
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
 FROM
 	coupons
 WHERE
@@ -138,6 +139,7 @@ func (q *Queries) CouponEnabledByCode(ctx context.Context, couponCode string) (C
 		&i.CouponCode,
 		&i.StripeID,
 		&i.MinPurchaseQuantity,
+		&i.EmailMatch,
 		&i.DiscountPercentage,
 		&i.Enabled,
 		&i.Public,
@@ -161,25 +163,31 @@ func (q *Queries) CreateAdminUser(ctx context.Context, email string) error {
 
 const createCoupon = `-- name: CreateCoupon :one
 INSERT INTO coupons (
-	coupon_code, min_purchase_quantity, discount_percentage, enabled
+	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public
 ) VALUES (
-	?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 ) RETURNING coupon_id
 `
 
 type CreateCouponParams struct {
+	StripeID            string
 	CouponCode          string
 	MinPurchaseQuantity sql.NullInt64
+	EmailMatch          sql.NullString
 	DiscountPercentage  int64
 	Enabled             bool
+	Public              bool
 }
 
 func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, createCoupon,
+		arg.StripeID,
 		arg.CouponCode,
 		arg.MinPurchaseQuantity,
+		arg.EmailMatch,
 		arg.DiscountPercentage,
 		arg.Enabled,
+		arg.Public,
 	)
 	var coupon_id int64
 	err := row.Scan(&coupon_id)
@@ -375,6 +383,46 @@ func (q *Queries) ListAdminUsers(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
+const listCoupons = `-- name: ListCoupons :many
+SELECT
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
+FROM
+	coupons
+`
+
+func (q *Queries) ListCoupons(ctx context.Context) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listCoupons)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coupon
+	for rows.Next() {
+		var i Coupon
+		if err := rows.Scan(
+			&i.CouponID,
+			&i.CouponCode,
+			&i.StripeID,
+			&i.MinPurchaseQuantity,
+			&i.EmailMatch,
+			&i.DiscountPercentage,
+			&i.Enabled,
+			&i.Public,
+			&i.RedemptionLimit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrderItems = `-- name: ListOrderItems :many
 SELECT
 	order_id, product_id, product_name, unit_price, amount, image_url, variant
@@ -458,7 +506,7 @@ func (q *Queries) ListProducts(ctx context.Context, includeDisabled bool) ([]Pro
 
 const listPublicCoupons = `-- name: ListPublicCoupons :many
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
 FROM
 	coupons
 WHERE
@@ -480,6 +528,7 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 			&i.CouponCode,
 			&i.StripeID,
 			&i.MinPurchaseQuantity,
+			&i.EmailMatch,
 			&i.DiscountPercentage,
 			&i.Enabled,
 			&i.Public,
@@ -708,8 +757,10 @@ const updateCoupon = `-- name: UpdateCoupon :exec
 UPDATE
 	coupons
 SET
+	stripe_id = ?,
 	coupon_code = ?,
 	min_purchase_quantity = ?,
+	email_match = ?,
 	discount_percentage = ?,
 	enabled = ?,
 	public = ?
@@ -718,8 +769,10 @@ WHERE
 `
 
 type UpdateCouponParams struct {
+	StripeID            string
 	CouponCode          string
 	MinPurchaseQuantity sql.NullInt64
+	EmailMatch          sql.NullString
 	DiscountPercentage  int64
 	Enabled             bool
 	Public              bool
@@ -728,8 +781,10 @@ type UpdateCouponParams struct {
 
 func (q *Queries) UpdateCoupon(ctx context.Context, arg UpdateCouponParams) error {
 	_, err := q.db.ExecContext(ctx, updateCoupon,
+		arg.StripeID,
 		arg.CouponCode,
 		arg.MinPurchaseQuantity,
+		arg.EmailMatch,
 		arg.DiscountPercentage,
 		arg.Enabled,
 		arg.Public,

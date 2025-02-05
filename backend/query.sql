@@ -70,10 +70,16 @@ WHERE
 
 -- name: CreateCoupon :one
 INSERT INTO coupons (
-	coupon_code, min_purchase_quantity, discount_percentage, enabled
+	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public
 ) VALUES (
-	?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 ) RETURNING coupon_id;
+
+-- name: ListCoupons :many
+SELECT
+	*
+FROM
+	coupons;
 
 -- name: ListPublicCoupons :many
 SELECT
@@ -105,8 +111,10 @@ WHERE
 UPDATE
 	coupons
 SET
+	stripe_id = ?,
 	coupon_code = ?,
 	min_purchase_quantity = ?,
+	email_match = ?,
 	discount_percentage = ?,
 	enabled = ?,
 	public = ?

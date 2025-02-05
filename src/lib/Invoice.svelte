@@ -12,7 +12,7 @@
 	import { flip } from 'svelte/animate';
 
 	export let items: (CartItem | OrderItem)[];
-	export let coupon: Coupon | null;
+	export let coupon: Coupon | undefined | null;
 	export let editable = false;
 
 	$: totalBeforeDiscount = calculateCartTotal(items);
