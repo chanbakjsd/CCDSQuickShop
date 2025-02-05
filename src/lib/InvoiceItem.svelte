@@ -13,7 +13,7 @@
 
 <div class="flex w-full items-center gap-2">
 	<ZoomableImage imageURL={item.imageURL} name={item.name} cls="size-16" />
-	<div class="flex w-full flex-col">
+	<div class="flex w-full min-w-0 flex-col break-words">
 		<p>{item.name}</p>
 		{#if itemVariant}
 			<p class="text-xs italic text-gray-500">{itemVariant}</p>

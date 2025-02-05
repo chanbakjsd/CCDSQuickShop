@@ -62,7 +62,7 @@
 	{#if selectedItem}
 		<hr class="border-gray-300" transition:fade />
 		<div class="flex justify-between gap-2" transition:fly={{ y: 100 }}>
-			<div class="flex min-w-0 flex-col gap-2">
+			<div class="flex min-w-0 flex-col gap-2 break-words">
 				<p class="text-3xl">{selectedItem.name}</p>
 				<p class="text-xl">
 					S$ {formatPrice(tentativePrice(selectedItem, activePreviewVariant) / 100)}

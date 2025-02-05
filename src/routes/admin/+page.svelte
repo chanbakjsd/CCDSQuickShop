@@ -27,7 +27,7 @@
 </script>
 
 <div class="flex flex-col gap-4 p-4">
-	<Header admin />
+	<Header admin cls="bg-white" />
 	<Options {options} bind:value={selected} />
 	{#if selected === 'Store Closures'}
 		<ClosuresEdit />

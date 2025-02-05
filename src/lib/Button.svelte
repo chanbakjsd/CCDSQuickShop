@@ -8,7 +8,11 @@
 	export const click = async () => {
 		if (shouldDisable) return;
 		internalLoading = true;
-		await onClick();
+		try {
+			await onClick();
+		} catch (e) {
+			console.error('Unhandled onClick error', e);
+		}
 		internalLoading = false;
 	};
 
