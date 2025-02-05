@@ -5,8 +5,12 @@
 	import Input from '$lib/Input.svelte';
 	import Invoice from '$lib/Invoice.svelte';
 
-	export let cart: CartItem[];
-	export let availableCoupons: Coupon[];
+	interface Props {
+		cart: CartItem[];
+		availableCoupons: Coupon[];
+	}
+
+	let { cart = $bindable(), availableCoupons }: Props = $props();
 
 	const validateName = (name: string) => name !== '';
 	const validateMatricNum = (matricNum: string) => /^[UG]\d{7}[A-Z]$/.test(matricNum);
@@ -31,35 +35,38 @@
 		throw new Error('Coupon requirement not matched');
 	};
 
-	$: bestCoupon = findBestCoupon(cart, availableCoupons);
+	const bestCoupon = $derived(findBestCoupon(cart, availableCoupons));
 
-	let userName = '';
-	let userMatricNumber = '';
-	let userEmail = '';
-	$: couponCode = bestCoupon?.couponCode || '';
-	let coupon: Coupon | undefined = undefined;
-	let couponInvalid = false;
+	let userName = $state('');
+	let userMatricNumber = $state('');
+	let userEmail = $state('');
+	let coupon: Coupon | undefined = $state(undefined);
+	let couponCode = $state('');
+	let couponConfirmedInvalid = $state(false);
+	$effect(() => {
+		couponCode = bestCoupon?.couponCode || '';
+	});
+	$effect(() => {
+		couponConfirmedInvalid = false;
+		if (!couponCode) return undefined;
+		searchCoupon(cart, couponCode)
+			.then((x) => {
+				coupon = x;
+			})
+			.catch(() => {
+				coupon = undefined;
+				couponConfirmedInvalid = true;
+			});
+	});
 
-	$: {
-		if (couponCode) {
-			couponInvalid = false;
-			searchCoupon(cart, couponCode)
-				.then((x) => {
-					couponInvalid = false;
-					coupon = x;
-				})
-				.catch(() => {
-					couponInvalid = true;
-				});
-		}
-	}
-
-	$: checkoutValid =
-		cart.length > 0 &&
-		validateName(userName) &&
-		validateMatricNum(userMatricNumber) &&
-		validateEmail(userEmail) &&
-		(couponCode === '' || coupon);
+	const [checkoutValid, checkoutTooltip] = $derived.by(() => {
+		if (cart.length === 0) return [false, 'Add Items to Checkout'];
+		if (!validateName(userName)) return [false, 'Name Missing'];
+		if (!validateMatricNum(userMatricNumber)) return [false, 'Matric Number Required'];
+		if (!validateEmail(userEmail)) return [false, 'NTU Email Required'];
+		if (couponCode !== '' && !coupon) return [false, 'Coupon Invalid'];
+		return [true, 'Checkout'];
+	});
 
 	const processCheckout = async () => {
 		const checkoutURL = await checkout(
@@ -90,7 +97,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-2">
-		<form class="grid grid-cols-1 xl:grid-cols-2" on:submit={clickCheckout}>
+		<form class="grid grid-cols-1 xl:grid-cols-2" onsubmit={clickCheckout}>
 			<Input label="Name" bind:value={userName} validate={validateName} />
 			<Input label="Matric Number" bind:value={userMatricNumber} validate={validateMatricNum} />
 			<div class="flex items-end xl:col-span-2">
@@ -100,13 +107,13 @@
 				<span class="text-lg">@e.ntu.edu.sg</span>
 			</div>
 			<div class="xl:col-span-2">
-				<Input label="Coupon Code" bind:value={couponCode} invalid={couponInvalid} />
+				<Input label="Coupon Code" bind:value={couponCode} invalid={couponConfirmedInvalid} />
 			</div>
 			<!-- https://stackoverflow.com/questions/4196681/form-not-submitting-when-pressing-enter -->
 			<input type="submit" class="hidden" />
 		</form>
 		<Button disabled={!checkoutValid} onClick={processCheckout} bind:this={checkoutButton}>
-			Checkout
+			{checkoutTooltip}
 		</Button>
 	</div>
 </div>
