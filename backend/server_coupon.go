@@ -222,6 +222,8 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+var descCache = make(map[int64]*string)
+
 func (s *Server) dbCouponToCoupon(dbCoupon shop.Coupon, includeSensitiveFields bool) Coupon {
 	requirements := make([]json.RawMessage, 0)
 	if dbCoupon.MinPurchaseQuantity.Valid {
@@ -243,12 +245,15 @@ func (s *Server) dbCouponToCoupon(dbCoupon shop.Coupon, includeSensitiveFields b
 		if s.Stripe == nil || dbCoupon.StripeID == "" {
 			return coupon
 		}
-		stripeCoupon, err := s.Stripe.Coupons.Get(dbCoupon.StripeID, nil)
-		if err != nil {
-			slog.Warn("error fetching Stripe coupon", "stripe_id", dbCoupon.StripeID, "err", err)
-			return coupon
+		if _, ok := descCache[dbCoupon.CouponID]; !ok {
+			stripeCoupon, err := s.Stripe.Coupons.Get(dbCoupon.StripeID, nil)
+			if err != nil {
+				slog.Warn("error fetching Stripe coupon", "stripe_id", dbCoupon.StripeID, "err", err)
+				return coupon
+			}
+			descCache[dbCoupon.CouponID] = &stripeCoupon.Name
 		}
-		coupon.StripeDesc = &stripeCoupon.Name
+		coupon.StripeDesc = descCache[dbCoupon.CouponID]
 	}
 	return coupon
 }
