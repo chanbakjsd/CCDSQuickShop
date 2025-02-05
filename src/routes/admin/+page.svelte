@@ -9,6 +9,7 @@
 	import MerchEdit from './MerchEdit.svelte';
 	import UsersEdit from './UsersEdit.svelte';
 	import OrderCollection from './OrderCollection.svelte';
+	import OrderSummary from './OrderSummary.svelte';
 
 	onMount(() => {
 		permCheck();
@@ -17,9 +18,10 @@
 	let options = [
 		{ text: 'Store Closures' },
 		{ text: 'Merch' },
+		{ text: 'Coupons' },
 		{ text: 'Admin Users' },
 		{ text: 'Order Collection' },
-		{ text: 'Coupons' }
+		{ text: 'Unfulfilled Order Summary' }
 	];
 	let selected: string | undefined = undefined;
 </script>
@@ -37,5 +39,7 @@
 		<OrderCollection />
 	{:else if selected === 'Coupons'}
 		<CouponEdit />
+	{:else if selected === 'Unfulfilled Order Summary'}
+		<OrderSummary />
 	{/if}
 </div>

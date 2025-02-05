@@ -168,3 +168,54 @@ func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+type OrderSummaryEntry struct {
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	Count   int    `json:"count"`
+}
+
+type OrderSummaryResponse struct {
+	Unfulfilled    []OrderSummaryEntry `json:"unfulfilled"`
+	OrderIDSamples []string            `json:"order_id_samples"`
+}
+
+func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
+	if !s.authCheck(w, req) {
+		return
+	}
+	ctx := req.Context()
+	summary, err := s.Queries.UnfulfilledOrderSummary(ctx)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		summary = []shop.UnfulfilledOrderSummaryRow{}
+	case err != nil:
+		slog.Error("error fetching order summary", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	orderIDs, err := s.Queries.UnfulfilledOrderIDs(ctx, 10)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		orderIDs = []string{}
+	case err != nil:
+		slog.Error("error fetching unfulfilled order IDs", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	entries := make([]OrderSummaryEntry, 0, len(summary))
+	for _, v := range summary {
+		entries = append(entries, OrderSummaryEntry{
+			Name:    v.ProductName,
+			Variant: v.Variant,
+			Count:   int(v.Sum.Float64),
+		})
+	}
+	if err := json.NewEncoder(w).Encode(OrderSummaryResponse{
+		Unfulfilled:    entries,
+		OrderIDSamples: orderIDs,
+	}); err != nil {
+		slog.Error("error writing order summary response", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}

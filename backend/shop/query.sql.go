@@ -710,6 +710,92 @@ func (q *Queries) StoreClosureCurrent(ctx context.Context, currentTime time.Time
 	return i, err
 }
 
+const unfulfilledOrderIDs = `-- name: UnfulfilledOrderIDs :many
+SELECT
+	order_id
+FROM
+	orders
+WHERE
+	orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+LIMIT
+	?1
+`
+
+func (q *Queries) UnfulfilledOrderIDs(ctx context.Context, maxCount int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, unfulfilledOrderIDs, maxCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var order_id string
+		if err := rows.Scan(&order_id); err != nil {
+			return nil, err
+		}
+		items = append(items, order_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const unfulfilledOrderSummary = `-- name: UnfulfilledOrderSummary :many
+SELECT
+	order_items.product_id, order_items.product_name, order_items.variant,
+	SUM(order_items.amount)
+FROM
+	orders
+	JOIN order_items ON orders.order_id = order_items.order_id
+WHERE
+	orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+GROUP BY
+	order_items.product_id, order_items.product_name, order_items.variant
+`
+
+type UnfulfilledOrderSummaryRow struct {
+	ProductID   string
+	ProductName string
+	Variant     string
+	Sum         sql.NullFloat64
+}
+
+func (q *Queries) UnfulfilledOrderSummary(ctx context.Context) ([]UnfulfilledOrderSummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, unfulfilledOrderSummary)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UnfulfilledOrderSummaryRow
+	for rows.Next() {
+		var i UnfulfilledOrderSummaryRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.Variant,
+			&i.Sum,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateCancelled = `-- name: UpdateCancelled :one
 UPDATE
 	orders

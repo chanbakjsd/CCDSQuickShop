@@ -84,6 +84,7 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/v0/coupons", s.SaveCoupon)
 	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
 	mux.HandleFunc("POST /api/v0/image_upload", s.ImageUpload)
+	mux.HandleFunc("GET /api/v0/order_summary", s.OrderSummary)
 	mux.HandleFunc("POST /api/v0/orders/{id}/collect", s.OrderCollect)
 	mux.HandleFunc("POST /api/v0/orders/{id}/cancel", s.OrderCancel)
 	mux.HandleFunc("GET /api/v0/perm_check", s.PermissionCheck)

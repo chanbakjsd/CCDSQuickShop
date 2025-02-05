@@ -164,6 +164,32 @@ WHERE
 		OR cancelled = FALSE
 	);
 
+-- name: UnfulfilledOrderSummary :many
+SELECT
+	order_items.product_id, order_items.product_name, order_items.variant,
+	SUM(order_items.amount)
+FROM
+	orders
+	JOIN order_items ON orders.order_id = order_items.order_id
+WHERE
+	orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+GROUP BY
+	order_items.product_id, order_items.product_name, order_items.variant;
+
+-- name: UnfulfilledOrderIDs :many
+SELECT
+	order_id
+FROM
+	orders
+WHERE
+	orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+LIMIT
+	@max_count;
+
 -- name: CompleteCheckout :one
 UPDATE
 	orders
