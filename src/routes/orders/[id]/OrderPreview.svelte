@@ -73,7 +73,7 @@
 		<div class="flex flex-col gap-4 p-4" bind:this={content}>
 			{#if userFacing}
 				<div
-					class={`w-full whitespace-pre rounded-lg border px-4 py-2 text-justify ${message.css}`}
+					class={`w-full whitespace-pre-wrap rounded-lg border px-4 py-2 text-justify ${message.css}`}
 				>
 					{message.text}
 				</div>

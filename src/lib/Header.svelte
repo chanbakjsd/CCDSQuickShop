@@ -1,9 +1,10 @@
 <script lang="ts">
 	export let admin = false;
+	export let cls = '';
 </script>
 
 <div
-	class="sticky top-0 -my-2 flex items-center justify-center gap-2 bg-white pb-2 md:justify-start"
+	class={`${cls} sticky left-0 top-0 -mb-1 -mt-2 flex w-screen items-center justify-center gap-2 border-b border-gray-400 px-4 pb-1 md:w-full md:justify-start`}
 >
 	<img src="https://ntuscds.com/scse-logo/scds-logo.png" class="size-16" alt="Logo for SCDS Club" />
 	<p class="text-2xl font-bold text-brand">

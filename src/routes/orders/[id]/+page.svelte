@@ -12,7 +12,7 @@
 </svelte:head>
 
 <div class="min-w-screen flex min-h-screen flex-col items-center gap-4 bg-gray-100 p-4">
-	<Header />
+	<Header cls="bg-gray-100" />
 	{#each orders as order}
 		<OrderPreview {order} expanded={orders.length === 1} userFacing />
 	{/each}

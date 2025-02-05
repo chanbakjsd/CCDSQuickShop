@@ -48,7 +48,10 @@
 	});
 	$effect(() => {
 		couponConfirmedInvalid = false;
-		if (!couponCode) return undefined;
+		if (!couponCode) {
+			coupon = undefined;
+			return;
+		}
 		searchCoupon(cart, couponCode)
 			.then((x) => {
 				coupon = x;
@@ -74,7 +77,7 @@
 			userName,
 			userMatricNumber,
 			userEmail + '@e.ntu.edu.sg',
-			bestCoupon?.couponCode
+			coupon?.couponCode
 		);
 		window.location.href = checkoutURL;
 	};
@@ -91,7 +94,7 @@
 				{#if cart.length === 0}
 					<p class="text-center text-sm italic">The cart is currently empty.</p>
 				{:else}
-					<Invoice bind:items={cart} coupon={bestCoupon} editable />
+					<Invoice bind:items={cart} {coupon} editable />
 				{/if}
 			</div>
 		</div>

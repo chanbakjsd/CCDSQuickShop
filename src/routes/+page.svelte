@@ -37,7 +37,7 @@
 
 <main class="grid grid-cols-1 md:grid-cols-3">
 	<div class="left-panel">
-		<Header />
+		<Header cls="bg-white" />
 		<div class="px-2 md:py-2">
 			<MerchSelection items={data.items} addItem={addToCart} />
 		</div>

@@ -43,6 +43,7 @@
 	let orderID = $state('');
 	let orderIDValid = $derived(orderID.match(/^[A-Z]{2}\d{4}$/));
 	const visitOrder = () => {
+		if (!orderIDValid) return;
 		window.location.assign(`/orders/${orderID}`);
 	};
 </script>
