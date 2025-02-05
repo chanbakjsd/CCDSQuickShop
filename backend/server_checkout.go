@@ -197,6 +197,22 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		if coupon.EmailMatch.Valid && !strings.EqualFold(coupon.EmailMatch.String, checkoutReq.Email) {
+			slog.Error("email mismatch", "db", coupon.EmailMatch.String, "req", checkoutReq.Email)
+			http.Error(w, "Invalid Coupon Code", http.StatusBadRequest)
+			return
+		}
+		if coupon.MinPurchaseQuantity.Valid {
+			itemCount := 0
+			for _, item := range checkoutReq.Items {
+				itemCount += item.Amount
+			}
+			if itemCount < int(coupon.MinPurchaseQuantity.Int64) {
+				slog.Error("insufficient purchase count", "db", coupon.MinPurchaseQuantity.Int64, "req", itemCount)
+				http.Error(w, "Invalid Coupon Code", http.StatusBadRequest)
+				return
+			}
+		}
 		couponID = &coupon.CouponID
 		couponStripeID = &coupon.StripeID
 	}
@@ -385,6 +401,11 @@ func (s *Server) createStripeCheckoutSession(orderID string, email string, items
 		if v.ImageUrl != "" {
 			imageData = append(imageData, stripe.String(v.ImageUrl))
 		}
+		var desc *string
+		if v.Variant != "" {
+			// Stripe does not like empty values as it assumes we are unsetting it.
+			desc = stripe.String(v.Variant)
+		}
 		checkoutLineItems = append(checkoutLineItems, &stripe.CheckoutSessionLineItemParams{
 			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
 				Currency:   stripe.String("sgd"),
@@ -392,7 +413,7 @@ func (s *Server) createStripeCheckoutSession(orderID string, email string, items
 				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
 					Name:        &v.ProductName,
 					Images:      imageData,
-					Description: stripe.String(v.Variant),
+					Description: desc,
 				},
 			},
 			Quantity: &v.Amount,
