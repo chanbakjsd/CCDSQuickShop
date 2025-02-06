@@ -6,7 +6,7 @@
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 
 	let closures: StoreClosure[] = $state([]);
-	let loading = true;
+	let loading = $state(true);
 	let fetchError: unknown = $state();
 	onMount(() => {
 		listStoreClosures()
