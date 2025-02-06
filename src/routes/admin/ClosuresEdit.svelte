@@ -3,17 +3,23 @@
 	import { listStoreClosures, updateStoreClosure, type StoreClosure } from '$lib/api';
 	import { formatDate } from '$lib/util';
 	import Button from '$lib/Button.svelte';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 
-	let closures: StoreClosure[];
+	let closures: StoreClosure[] = $state([]);
 	let loading = true;
+	let fetchError: unknown = $state();
 	onMount(() => {
-		listStoreClosures().then((x) => {
-			closures = x;
-			loading = false;
-		});
+		listStoreClosures()
+			.then((x) => {
+				closures = x;
+				loading = false;
+			})
+			.catch((e) => {
+				fetchError = e;
+			});
 	});
 
-	$: {
+	$effect(() => {
 		if (!loading && (closures.length === 0 || closures[closures.length - 1].id !== '')) {
 			closures.push({
 				id: '',
@@ -23,49 +29,56 @@
 				show_order_check: true
 			});
 		}
-	}
+	});
 
-	let selected = -1;
-	let selectedStartDate = '';
-	let selectedEndDate = '';
+	let selected = $state(-1);
+	let selectedStartDate = $state('');
+	let selectedEndDate = $state('');
 	const select = (i: number) => () => {
 		selected = i;
 		selectedStartDate = formatDate(closures[selected].start_time, 'T');
 		selectedEndDate = formatDate(closures[selected].end_time, 'T');
 	};
 
+	let updateError: unknown = $state();
 	const updateClosure = async () => {
 		const newClosure = {
 			...closures[selected],
 			start_time: new Date(selectedStartDate),
 			end_time: new Date(selectedEndDate)
 		};
-		closures[selected] = await updateStoreClosure(newClosure);
+		try {
+			closures[selected] = await updateStoreClosure(newClosure);
+		} catch (e) {
+			updateError = e;
+		}
 	};
 </script>
 
-<table class="w-fit border border-black text-center">
-	<thead>
-		<tr>
-			<th>#</th>
-			<th>Start</th>
-			<th>End</th>
-			<th>Message</th>
-			<th>Show Order?</th>
-		</tr>
-	</thead>
-	<tbody>
-		{#each closures as closure, i}
-			<tr class="odd:bg-gray-200" on:click={select(i)}>
-				<td>{closure.id}</td>
-				<td>{formatDate(closure.start_time)}</td>
-				<td>{formatDate(closure.end_time)}</td>
-				<td>{closure.message}</td>
-				<td>{closure.show_order_check ? 'Yes' : 'NO'}</td>
+<ErrorBoundary error={fetchError}>
+	<table class="w-fit border border-black text-center">
+		<thead>
+			<tr>
+				<th>#</th>
+				<th>Start</th>
+				<th>End</th>
+				<th>Message</th>
+				<th>Show Order?</th>
 			</tr>
-		{/each}
-	</tbody>
-</table>
+		</thead>
+		<tbody>
+			{#each closures as closure, i}
+				<tr class="odd:bg-gray-200" onclick={select(i)}>
+					<td>{closure.id}</td>
+					<td>{formatDate(closure.start_time)}</td>
+					<td>{formatDate(closure.end_time)}</td>
+					<td>{closure.message}</td>
+					<td>{closure.show_order_check ? 'Yes' : 'NO'}</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</ErrorBoundary>
 
 {#if selected !== -1}
 	<div class="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
@@ -79,7 +92,10 @@
 		<input bind:value={closures[selected].message} />
 		<span>Show Order</span>
 		<input type="checkbox" bind:checked={closures[selected].show_order_check} />
-		<div class="flex"><Button onClick={updateClosure}>Update Closure</Button></div>
+		<div class="flex">
+			<Button onClick={updateClosure}>Update Closure</Button>
+			<ErrorBoundary error={updateError} />
+		</div>
 	</div>
 {/if}
 

@@ -3,10 +3,16 @@
 	import { unfulfilledOrderSummary, type UnfulfilledOrderSummary } from '$lib/api';
 	import Button from '$lib/Button.svelte';
 	import { constructTables } from './summary';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 
+	let error: unknown = $state();
 	let summary: UnfulfilledOrderSummary | undefined = $state(undefined);
 	const refresh = async () => {
-		summary = await unfulfilledOrderSummary();
+		try {
+			summary = await unfulfilledOrderSummary();
+		} catch (e) {
+			error = e;
+		}
 	};
 	onMount(refresh);
 
@@ -19,8 +25,9 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex">
+	<div class="flex gap-2">
 		<Button onClick={refresh}>Refresh</Button>
+		<ErrorBoundary {error} />
 	</div>
 	<div class="flex flex-col gap-1">
 		{#if summary}

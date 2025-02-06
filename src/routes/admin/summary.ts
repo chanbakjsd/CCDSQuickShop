@@ -1,4 +1,4 @@
-import { type UnfulfilledOrderSummary } from '$lib/api';
+import type { UnfulfilledOrderSummary } from '$lib/api';
 
 type Table = {
 	name: string

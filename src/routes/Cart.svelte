@@ -10,6 +10,7 @@
 	import Button from '$lib/Button.svelte';
 	import Input from '$lib/Input.svelte';
 	import Invoice from '$lib/Invoice.svelte';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 
 	interface Props {
 		cart: CartItem[];
@@ -83,15 +84,20 @@
 		return [true, 'Checkout'];
 	});
 
+	let checkoutError: unknown = $state();
 	const processCheckout = async () => {
-		const checkoutURL = await checkout(
-			cart,
-			userName,
-			userMatricNumber,
-			userEmail + EMAIL_SUFFIX,
-			coupon?.couponCode
-		);
-		window.location.href = checkoutURL;
+		try {
+			const checkoutURL = await checkout(
+				cart,
+				userName,
+				userMatricNumber,
+				userEmail + EMAIL_SUFFIX,
+				coupon?.couponCode
+			);
+			window.location.href = checkoutURL;
+		} catch (e) {
+			checkoutError = e;
+		}
 	};
 
 	let checkoutButton: Button;
@@ -130,5 +136,6 @@
 		<Button disabled={!checkoutValid} onClick={processCheckout} bind:this={checkoutButton}>
 			{checkoutTooltip}
 		</Button>
+		<ErrorBoundary error={checkoutError} />
 	</div>
 </div>

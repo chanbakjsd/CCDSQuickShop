@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { permCheck } from '$lib/api';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 	import Header from '$lib/Header.svelte';
 	import Options from '$lib/Options.svelte';
 	import CouponEdit from './CouponEdit.svelte';
@@ -11,8 +12,13 @@
 	import OrderCollection from './OrderCollection.svelte';
 	import OrderSummary from './OrderSummary.svelte';
 
+	let err: unknown = $state();
 	onMount(() => {
-		permCheck();
+		try {
+			permCheck();
+		} catch (e) {
+			err = e;
+		}
 	});
 
 	let options = [
@@ -23,23 +29,25 @@
 		{ text: 'Order Collection' },
 		{ text: 'Unfulfilled Order Summary' }
 	];
-	let selected: string | undefined = undefined;
+	let selected: string | undefined = $state(undefined);
 </script>
 
 <div class="flex flex-col gap-4 p-4">
 	<Header admin cls="bg-white" />
-	<Options {options} bind:value={selected} />
-	{#if selected === 'Store Closures'}
-		<ClosuresEdit />
-	{:else if selected === 'Merch'}
-		<MerchEdit />
-	{:else if selected === 'Admin Users'}
-		<UsersEdit />
-	{:else if selected === 'Order Collection'}
-		<OrderCollection />
-	{:else if selected === 'Coupons'}
-		<CouponEdit />
-	{:else if selected === 'Unfulfilled Order Summary'}
-		<OrderSummary />
-	{/if}
+	<ErrorBoundary error={err}>
+		<Options {options} bind:value={selected} />
+		{#if selected === 'Store Closures'}
+			<ClosuresEdit />
+		{:else if selected === 'Merch'}
+			<MerchEdit />
+		{:else if selected === 'Admin Users'}
+			<UsersEdit />
+		{:else if selected === 'Order Collection'}
+			<OrderCollection />
+		{:else if selected === 'Coupons'}
+			<CouponEdit />
+		{:else if selected === 'Unfulfilled Order Summary'}
+			<OrderSummary />
+		{/if}
+	</ErrorBoundary>
 </div>

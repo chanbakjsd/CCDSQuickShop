@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { uploadImage } from '$lib/api';
 	import Button from '$lib/Button.svelte';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 	import type { ChangeEventHandler } from 'svelte/elements';
 
-	export let value: string;
+	interface Props {
+		value: string;
+	}
+	let { value }: Props = $props();
 
 	let fileSelect: HTMLInputElement;
 	let resolveFileSelect: ((filelist: FileList) => void) | undefined = undefined;
 	let rejectFileSelect: (() => void) | undefined = undefined;
+	let uploadError: unknown = $state();
 	const upload = async () => {
 		fileSelect.click();
 		const files = await new Promise<FileList>((resolve, rej) => {
@@ -17,7 +22,11 @@
 		if (files.length === 0) {
 			return;
 		}
-		value = await uploadImage(files[0]);
+		try {
+			value = await uploadImage(files[0]);
+		} catch (e) {
+			uploadError = e;
+		}
 	};
 
 	const selectFile: ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -32,8 +41,9 @@
 <div class="flex gap-2">
 	<input bind:value />
 	<Button onClick={upload} size="md">Upload</Button>
+	<ErrorBoundary error={uploadError} />
 
-	<input type="file" on:change={selectFile} bind:this={fileSelect} class="hidden" />
+	<input type="file" onchange={selectFile} bind:this={fileSelect} class="hidden" />
 </div>
 
 <style lang="postcss">

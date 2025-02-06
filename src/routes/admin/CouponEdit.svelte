@@ -4,13 +4,20 @@
 	import { onMount } from 'svelte';
 	import Button from '$lib/Button.svelte';
 	import TrashIcon from '$lib/TrashIcon.svelte';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+
 	let loading = $state(true);
 	let coupons: AdminCoupon[] = $state([]);
+	let error: unknown = $state();
 	onMount(() => {
-		fetchAdminCoupons().then((x) => {
-			loading = false;
-			coupons = x;
-		});
+		fetchAdminCoupons()
+			.then((x) => {
+				loading = false;
+				coupons = x;
+			})
+			.catch((e) => {
+				error = e;
+			});
 	});
 
 	$effect(() => {
@@ -35,13 +42,12 @@
 		coupons.map((x) => {
 			if (!x.requirements) return '-';
 			return x.requirements
-				.map((req) => {
+				.map<string>((req) => {
 					switch (req.type) {
 						case 'purchase_count':
 							return `Buy ${req.amount}`;
 						case 'email':
 							return `Email: ${req.value}`;
-							throw new Error(`Unknown type: ${req.type}`);
 					}
 				})
 				.join(', ');
@@ -62,7 +68,11 @@
 	};
 
 	const update = async () => {
-		coupons[selected] = await updateCoupon(coupons[selected]);
+		try {
+			coupons[selected] = await updateCoupon(coupons[selected]);
+		} catch (e) {
+			error = e;
+		}
 	};
 
 	const addRequirement = () => {
@@ -155,6 +165,8 @@
 		<div class="flex"><Button onClick={update}>Update Coupon</Button></div>
 	</div>
 {/if}
+
+<ErrorBoundary {error} />
 
 <style lang="postcss">
 	th,

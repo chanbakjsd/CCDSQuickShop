@@ -3,30 +3,46 @@
 	import { addUser, listUsers, deleteUser } from '$lib/api';
 	import Button from '$lib/Button.svelte';
 	import TrashIcon from '$lib/TrashIcon.svelte';
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
 
-	let adminEmail = '';
-	let admins: string[] = [];
+	let error: unknown = $state();
+	let adminEmail = $state('');
+	let admins: string[] = $state([]);
 	onMount(() => {
-		listUsers().then((x) => {
-			admins = x;
-		});
+		listUsers()
+			.then((x) => {
+				admins = x;
+			})
+			.catch((e) => {
+				error = e;
+			});
 	});
 
 	const addAdminEmail = async () => {
-		await addUser(adminEmail);
-		admins = [...admins, adminEmail];
-		adminEmail = '';
+		try {
+			await addUser(adminEmail);
+			admins = [...admins, adminEmail];
+			adminEmail = '';
+		} catch (e) {
+			error = e;
+		}
 	};
 
 	const deleteAdminEmail = (email: string) => async () => {
-		await deleteUser(email);
-		admins = admins.filter((x) => x !== email);
+		try {
+			await deleteUser(email);
+			admins = admins.filter((x) => x !== email);
+		} catch (e) {
+			error = e;
+		}
 	};
 </script>
 
 <div class="flex flex-col gap-4 p-4">
+	<ErrorBoundary {error} />
+
 	<div class="flex items-center gap-1">
-		<form on:submit={addAdminEmail}>
+		<form onsubmit={addAdminEmail}>
 			<input placeholder="Email of New Admin" bind:value={adminEmail} />
 		</form>
 		<Button size="md" onClick={addAdminEmail}>Add</Button>
@@ -35,7 +51,7 @@
 	<div class="admin-list">
 		{#each admins as admin}
 			{admin}
-			<button on:click={deleteAdminEmail(admin)}>
+			<button onclick={deleteAdminEmail(admin)}>
 				<TrashIcon />
 			</button>
 		{/each}
