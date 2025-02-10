@@ -45,7 +45,7 @@
 	<div class="flex flex-col gap-1">
 		<h2 class="text-xl">Unfulfilled Items</h2>
 		{#each summaryTables as tbl}
-			<h3 class="text-lg">{tbl.name}</h3>
+			<h3 class="mt-4 text-lg">{tbl.name}</h3>
 			<table>
 				<thead>
 					{#each tbl.columns as colRow}

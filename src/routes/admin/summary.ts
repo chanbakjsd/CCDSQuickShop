@@ -92,18 +92,21 @@ const relevantEntriesForProducts = (summary: UnfulfilledOrderSummary, products: 
 		count: x.count,
 	}))
 
-const SORT_ORDER = ['3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 // Assumption: Length is same for each entry, which is true from findProductGroups.
 const combineVariants = (products: ProductName[], productVariants: Record<ProductName, ProductVariant>): ProductVariant =>
 	productVariants[products[0]].map((_, i) =>
-		[...new Set(products.flatMap((x) => productVariants[x][i]))].sort((a, b) => {
-			// Use SORT_ORDER if applicable to make sure size is in the right order.
-			const aIndex = SORT_ORDER.indexOf(a);
-			const bIndex = SORT_ORDER.indexOf(b);
-			if (aIndex === -1 || bIndex === -1) return a < b ? -1 : 1;
-			return aIndex - bIndex;
-		})
+		[...new Set(products.flatMap((x) => productVariants[x][i]))]
+			.sort(variantSort)
 	);
+
+const SORT_ORDER = ['3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+const variantSort = (a: string, b: string) => {
+	// Use SORT_ORDER if applicable to make sure size is in the right order.
+	const aIndex = SORT_ORDER.indexOf(a);
+	const bIndex = SORT_ORDER.indexOf(b);
+	if (aIndex === -1 || bIndex === -1) return a < b ? -1 : a === b ? 0 : 1;
+	return aIndex - bIndex;
+}
 
 const constructTable = (group: ProductName[], variants: Record<ProductName, ProductVariant>, summary: UnfulfilledOrderSummary): Table => {
 	const name = group.join(", ")
@@ -122,7 +125,15 @@ const constructTable = (group: ProductName[], variants: Record<ProductName, Prod
 	const rowsRecord: Record<string, TableRow> = {}
 	for (const entry of entries) {
 		let label = entry.product
+		if (group.length === 1 && rowIdx.length > 0) {
+			// There is only one product, no point labelling it.
+			label = ""
+		}
 		for (const i of rowIdx) {
+			if (label === "") {
+				label = entry.variant[i]
+				continue
+			}
 			label += ", " + entry.variant[i]
 		}
 		if (!(label in rowsRecord)) {
@@ -141,7 +152,15 @@ const constructTable = (group: ProductName[], variants: Record<ProductName, Prod
 	}
 	const rows = Object.keys(rowsRecord)
 		.map(k => rowsRecord[k])
-		.sort((a, b) => a.label < b.label ? -1 : 1)
+		.sort((a, b) => {
+			const aLabel = a.label.split(", ")
+			const bLabel = b.label.split(", ")
+			for (let i = 0; i < Math.min(aLabel.length, bLabel.length); i++) {
+				const sortRes = variantSort(aLabel[i], bLabel[i])
+				if (sortRes !== 0) return sortRes
+			}
+			return variantSort(a.label, b.label)
+		})
 	return { name, columns, rows }
 }
 
