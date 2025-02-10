@@ -61,8 +61,11 @@
 	<MerchList {items} variants={previewVariants} bind:value={activeMerch} />
 	{#if selectedItem}
 		<hr class="border-gray-300" transition:fade />
-		<div class="flex justify-between gap-2" transition:fly={{ y: 100 }}>
-			<div class="flex min-w-0 flex-col gap-2 break-words">
+		<div
+			class="grid grid-cols-1 justify-between gap-2 lg:grid-cols-[1fr,auto]"
+			transition:fly={{ y: 100 }}
+		>
+			<div class="row-start-2 flex min-w-0 flex-col gap-2 break-words lg:row-start-1">
 				<p class="text-3xl">{selectedItem.name}</p>
 				<p class="text-xl">
 					S$ {formatPrice(tentativePrice(selectedItem, activePreviewVariant) / 100)}
@@ -81,7 +84,13 @@
 					<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
 				</div>
 			</div>
-			<ZoomableImage imageURL={previewImage} cls="flex-shrink-0 size-48" name={selectedItem.name} />
+			<div class="row-start-1">
+				<ZoomableImage
+					imageURL={previewImage}
+					cls="flex-shrink-0 size-48"
+					name={selectedItem.name}
+				/>
+			</div>
 		</div>
 	{/if}
 </div>

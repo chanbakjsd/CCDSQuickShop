@@ -11,4 +11,5 @@
 		Merch Store
 		{#if admin}(Admin){/if}
 	</p>
+	<slot />
 </div>

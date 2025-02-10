@@ -11,13 +11,16 @@
 	import Input from '$lib/Input.svelte';
 	import Invoice from '$lib/Invoice.svelte';
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import IconX from '$lib/IconX.svelte';
 
 	interface Props {
 		cart: CartItem[];
 		availableCoupons: Coupon[];
+		close?: () => void;
+		closeClass?: string;
 	}
 
-	let { cart = $bindable(), availableCoupons }: Props = $props();
+	let { cart = $bindable(), availableCoupons, close, closeClass }: Props = $props();
 
 	const validateName = (name: string) => name !== '';
 	const validateMatricNum = (matricNum: string) => /^[UG]\d{7}[A-Z]$/.test(matricNum);
@@ -106,7 +109,10 @@
 
 <div class="flex min-h-full flex-col justify-between gap-4">
 	<div>
-		<h1 class="text-2xl">Cart</h1>
+		<div class="flex justify-between">
+			<h1 class="text-2xl">Cart</h1>
+			<button onclick={close} class={closeClass}><IconX /></button>
+		</div>
 		<div class="full flex flex-col gap-2 lg:px-8">
 			<div class="my-2">
 				{#if cart.length === 0}
