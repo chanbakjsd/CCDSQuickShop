@@ -36,6 +36,7 @@
 	};
 
 	const cartColor = $derived(cart.length > 0 ? 'bg-red-300' : 'bg-gray-300');
+	const cartItemCount = $derived(cart.reduce((acc, x) => x.amount + acc, 0));
 </script>
 
 <svelte:head><title>SCDS Merch Store</title></svelte:head>
@@ -48,7 +49,7 @@
 				onclick={() => (openCart = true)}
 			>
 				<CartIcon />
-				<div class={`${cartColor} rounded-full px-2`}>{cart.length}</div>
+				<div class={`${cartColor} rounded-full px-2`}>{cartItemCount}</div>
 			</button>
 		</Header>
 		<div class="px-2 md:py-2">
