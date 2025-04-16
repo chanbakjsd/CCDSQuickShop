@@ -41,7 +41,8 @@ type OrderItem struct {
 
 func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 	includeCancelled := req.URL.Query().Get("include_cancelled") != ""
-	if includeCancelled && !s.authCheck(w, req) {
+	allowFromItem := req.URL.Query().Get("from_item") != ""
+	if (includeCancelled || allowFromItem) && !s.authCheck(w, req) {
 		return
 	}
 	ctx := req.Context()
@@ -50,6 +51,16 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 		ID:               orderID,
 		IncludeCancelled: includeCancelled,
 	})
+	if (err == nil || errors.Is(err, sql.ErrNoRows)) && allowFromItem && strings.Contains(orderID, ", ") {
+		split := strings.SplitN(orderID, ", ", 2)
+		slog.Info("Searching", "Product", split[0], "Variant", split[1])
+		orders, dbErr := s.Queries.LookupOrderFromItem(ctx, shop.LookupOrderFromItemParams{
+			ProductName: split[0],
+			Variant:     split[1],
+		})
+		dbOrders = append(dbOrders, orders...)
+		err = dbErr
+	}
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "Invalid order ID", http.StatusNotFound)

@@ -1,6 +1,6 @@
-import { z, type ZodType } from "zod"
-import { AdminCoupon, Coupon, OrderItem, type CartItem } from "./cart"
-import { ShopItem } from "./shop"
+import { z, type ZodType } from 'zod'
+import { AdminCoupon, Coupon, OrderItem, type CartItem } from './cart'
+import { ShopItem } from './shop'
 
 const API_URL = `${import.meta.env.VITE_URL}/api/v0`
 
@@ -10,20 +10,24 @@ export class StoreClosureError extends Error {
 	allow_order: boolean
 
 	constructor(end_time: number | null, message: string, allow_order: boolean) {
-		super(`The store is currently closed. Admin reason: ${message}`);
-		this.name = "StoreClosureError";
+		super(`The store is currently closed. Admin reason: ${message}`)
+		this.name = 'StoreClosureError'
 		this.end_time = end_time
 		this.user_message = message
 		this.allow_order = allow_order
 	}
 }
 
-const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: RequestInit): Promise<z.infer<T>> => {
+const handleFetch = async <T extends ZodType>(
+	typ: T,
+	path: string,
+	params?: RequestInit
+): Promise<z.infer<T>> => {
 	const resp = await fetch(path, params)
 	switch (resp.status) {
 		case 401:
 			window.location.replace(`${API_URL}/auth`)
-			throw new Error("Pending authentication")
+			throw new Error('Pending authentication')
 		case 200:
 			break
 		case 204:
@@ -45,35 +49,41 @@ const handleFetch = async <T extends ZodType>(typ: T, path: string, params?: Req
 }
 
 const APIStoreClosureError = z.object({
-	type: z.literal("store_closure"),
+	type: z.literal('store_closure'),
 	end_time: z.number().nullable(),
 	message: z.string(),
-	show_order_check: z.boolean(),
+	show_order_check: z.boolean()
 })
 
 const CheckoutResponse = z.object({
-	checkoutURL: z.string(),
+	checkoutURL: z.string()
 })
-export const checkout = async (checkoutItems: CartItem[], name: string, matricNumber: string, email: string, coupon: string | undefined): Promise<string> => {
-	const items = checkoutItems.map(x => ({
+export const checkout = async (
+	checkoutItems: CartItem[],
+	name: string,
+	matricNumber: string,
+	email: string,
+	coupon: string | undefined
+): Promise<string> => {
+	const items = checkoutItems.map((x) => ({
 		id: x.id,
 		variant: x.variant,
-		amount: x.amount,
+		amount: x.amount
 	}))
 	const resp = await handleFetch(CheckoutResponse, `${API_URL}/checkout`, {
-		method: "POST",
+		method: 'POST',
 		body: JSON.stringify({ name, matricNumber, email, coupon, items })
 	})
 	return resp.checkoutURL
 }
 
 const ProductsResponse = z.object({
-	products: ShopItem.array(),
+	products: ShopItem.array()
 })
 export const fetchProducts = async (includeDisabled?: boolean): Promise<ShopItem[]> => {
 	let path = `${API_URL}/products`
 	if (includeDisabled) {
-		path += "?include_disabled=1"
+		path += '?include_disabled=1'
 	}
 	const resp = await handleFetch(ProductsResponse, path)
 	return resp.products
@@ -82,14 +92,15 @@ export const fetchProducts = async (includeDisabled?: boolean): Promise<ShopItem
 export const updateProduct = async (product: ShopItem): Promise<ShopItem> => {
 	return handleFetch(ShopItem, `${API_URL}/products`, {
 		method: 'POST',
-		body: JSON.stringify(product),
+		body: JSON.stringify(product)
 	})
 }
 
-export const fetchCoupon = (couponCode: string): Promise<Coupon> => handleFetch(Coupon, `${API_URL}/coupons/${encodeURI(couponCode)}`)
+export const fetchCoupon = (couponCode: string): Promise<Coupon> =>
+	handleFetch(Coupon, `${API_URL}/coupons/${encodeURI(couponCode)}`)
 
 const CouponsResponse = z.object({
-	coupons: Coupon.array(),
+	coupons: Coupon.array()
 })
 export const fetchCoupons = async (): Promise<Coupon[]> => {
 	const resp = await handleFetch(CouponsResponse, `${API_URL}/coupons`)
@@ -97,17 +108,18 @@ export const fetchCoupons = async (): Promise<Coupon[]> => {
 }
 
 const AdminCouponsResponse = z.object({
-	coupons: AdminCoupon.array(),
+	coupons: AdminCoupon.array()
 })
 export const fetchAdminCoupons = async (): Promise<AdminCoupon[]> => {
 	const resp = await handleFetch(AdminCouponsResponse, `${API_URL}/coupons?include_disabled=1`)
 	return resp.coupons
 }
 
-export const updateCoupon = async (coupon: AdminCoupon): Promise<AdminCoupon> => handleFetch(AdminCoupon, `${API_URL}/coupons`, {
-	method: 'POST',
-	body: JSON.stringify(coupon),
-})
+export const updateCoupon = async (coupon: AdminCoupon): Promise<AdminCoupon> =>
+	handleFetch(AdminCoupon, `${API_URL}/coupons`, {
+		method: 'POST',
+		body: JSON.stringify(coupon)
+	})
 
 export const permCheck = async (): Promise<void> => {
 	return handleFetch(z.undefined(), `${API_URL}/perm_check`)
@@ -124,15 +136,17 @@ export const listUsers = async (): Promise<User[]> => {
 	return resp.users
 }
 
-export const addUser = (user: User): Promise<void> => handleFetch(z.undefined(), `${API_URL}/users`, {
-	method: "POST",
-	body: JSON.stringify(user),
-})
+export const addUser = (user: User): Promise<void> =>
+	handleFetch(z.undefined(), `${API_URL}/users`, {
+		method: 'POST',
+		body: JSON.stringify(user)
+	})
 
-export const deleteUser = (user: User): Promise<void> => handleFetch(z.undefined(), `${API_URL}/users`, {
-	method: "DELETE",
-	body: JSON.stringify(user),
-})
+export const deleteUser = (user: User): Promise<void> =>
+	handleFetch(z.undefined(), `${API_URL}/users`, {
+		method: 'DELETE',
+		body: JSON.stringify(user)
+	})
 
 const Order = z.object({
 	id: z.string(),
@@ -144,37 +158,43 @@ const Order = z.object({
 	collectionTime: z.coerce.date().nullable(),
 	cancelled: z.boolean(),
 	coupon: Coupon.nullable(),
-	items: OrderItem.array(),
+	items: OrderItem.array()
 })
 const OrdersResponse = z.object({
 	orders: Order.array()
 })
-export type Order = z.infer<typeof Order>;
-export const listOrders = async (keyword: string, includeCancelled?: boolean): Promise<Order[]> => {
+export type Order = z.infer<typeof Order>
+export const listOrders = async (
+	keyword: string,
+	options?: { includeCancelled?: boolean; allowFromItem?: boolean }
+): Promise<Order[]> => {
 	let url = `${API_URL}/orders/${encodeURI(keyword)}`
-	if (includeCancelled) {
-		url += "?include_cancelled=1"
-	}
+	const opts = []
+	if (options?.includeCancelled) opts.push('include_cancelled=1')
+	if (options?.allowFromItem) opts.push('from_item=1')
+	if (opts.length > 0) url += `?${opts.join('&')}`
 	const resp = await handleFetch(OrdersResponse, url)
 	return resp.orders
 }
 
-export const collectOrder = (orderID: string): Promise<void> => handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/collect`, {
-	method: "POST",
-})
-export const cancelOrder = (orderID: string): Promise<void> => handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/cancel`, {
-	method: "POST",
-})
+export const collectOrder = (orderID: string): Promise<void> =>
+	handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/collect`, {
+		method: 'POST'
+	})
+export const cancelOrder = (orderID: string): Promise<void> =>
+	handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/cancel`, {
+		method: 'POST'
+	})
 
 const ImageUploadResponse = z.object({
 	url: z.string()
 })
 export const uploadImage = async (img: Blob): Promise<string> => {
 	const data = new FormData()
-	data.append("file", img)
+	data.append('file', img)
 	const resp = await handleFetch(ImageUploadResponse, `${API_URL}/image_upload`, {
-		method: "POST",
-		body: data,
+		method: 'POST',
+		body: data
 	})
 	return resp.url
 }
@@ -184,12 +204,12 @@ const StoreClosure = z.object({
 	start_time: z.coerce.date(),
 	end_time: z.coerce.date(),
 	message: z.string(),
-	show_order_check: z.boolean(),
+	show_order_check: z.boolean()
 })
-export type StoreClosure = z.infer<typeof StoreClosure>;
+export type StoreClosure = z.infer<typeof StoreClosure>
 
 const StoreClosureResponse = z.object({
-	closures: StoreClosure.array(),
+	closures: StoreClosure.array()
 })
 export const listStoreClosures = async (): Promise<StoreClosure[]> => {
 	const resp = await handleFetch(StoreClosureResponse, `${API_URL}/closures`)
@@ -199,17 +219,20 @@ export const listStoreClosures = async (): Promise<StoreClosure[]> => {
 export const updateStoreClosure = async (closure: StoreClosure): Promise<StoreClosure> => {
 	return handleFetch(StoreClosure, `${API_URL}/closures`, {
 		method: 'POST',
-		body: JSON.stringify(closure),
+		body: JSON.stringify(closure)
 	})
 }
 
 const UnfulfilledOrderSummary = z.object({
-	unfulfilled: z.object({
-		name: z.string(),
-		variant: z.string(),
-		count: z.number(),
-	}).array(),
+	unfulfilled: z
+		.object({
+			name: z.string(),
+			variant: z.string(),
+			count: z.number()
+		})
+		.array(),
 	order_id_samples: z.string().array()
 })
 export type UnfulfilledOrderSummary = z.infer<typeof UnfulfilledOrderSummary>
-export const unfulfilledOrderSummary = (): Promise<UnfulfilledOrderSummary> => handleFetch(UnfulfilledOrderSummary, `${API_URL}/order_summary`)
+export const unfulfilledOrderSummary = (): Promise<UnfulfilledOrderSummary> =>
+	handleFetch(UnfulfilledOrderSummary, `${API_URL}/order_summary`)

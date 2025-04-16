@@ -164,6 +164,26 @@ WHERE
 		OR cancelled = FALSE
 	);
 
+-- name: LookupOrderFromItem :many
+SELECT
+	orders.*
+FROM
+	orders
+WHERE
+	EXISTS(
+		SELECT
+			1
+		FROM
+			order_items
+		WHERE
+			order_items.order_id = orders.order_id
+			AND order_items.product_name = @product_name COLLATE NOCASE
+			AND order_items.variant = @variant COLLATE NOCASE
+	)
+	AND orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE;
+
 -- name: UnfulfilledOrderSummary :many
 SELECT
 	order_items.product_id, order_items.product_name, order_items.variant,

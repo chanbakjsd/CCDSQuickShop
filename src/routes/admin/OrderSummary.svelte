@@ -1,27 +1,33 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { unfulfilledOrderSummary, type UnfulfilledOrderSummary } from '$lib/api';
-	import Button from '$lib/Button.svelte';
-	import { constructTables } from './summary';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import { onMount } from 'svelte'
+	import { unfulfilledOrderSummary, type UnfulfilledOrderSummary } from '$lib/api'
+	import Button from '$lib/Button.svelte'
+	import { constructTables } from './summary'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
-	let error: unknown = $state();
-	let summary: UnfulfilledOrderSummary | undefined = $state(undefined);
+	interface Props {
+		searchOrder: (phrase: string) => void
+	}
+	const { searchOrder }: Props = $props();
+
+	let error: unknown = $state()
+	let summary: UnfulfilledOrderSummary | undefined = $state(undefined)
 	const refresh = async () => {
 		try {
-			summary = await unfulfilledOrderSummary();
+			summary = await unfulfilledOrderSummary()
 		} catch (e) {
-			error = e;
+			error = e
 		}
-	};
-	onMount(refresh);
+	}
+	onMount(refresh)
 
-	const MAX_SAMPLE = 10;
+	const MAX_SAMPLE = 10
 
+	const search = (label: string) => () => searchOrder(label)
 	const summaryTables = $derived.by(() => {
-		if (!summary) return [];
-		return constructTables(summary);
-	});
+		if (!summary) return []
+		return constructTables(summary)
+	})
 </script>
 
 <div class="flex flex-col gap-4">
@@ -61,8 +67,8 @@
 					{#each tbl.rows as row}
 						<tr>
 							<td class="font-bold">{row.label}</td>
-							{#each row.data as num}
-								<td>
+							{#each row.data as num, i}
+								<td on:click={search(row.fullLabels[i])}>
 									{#if num}{num}{:else}-{/if}
 								</td>
 							{/each}

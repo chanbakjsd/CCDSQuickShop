@@ -374,7 +374,12 @@ func (s *Server) ImageUpload(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			slog.Error("error closing image file", "dir", s.Config.ImageDir, "image_name", imageName, "err", err)
+		}
+	}()
 	if err := png.Encode(f, img); err != nil {
 		slog.Error("error encoding PNG file", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -453,7 +458,7 @@ func (s *Server) completeAuth(w http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) validAdminUser(ctx context.Context, email string) (bool, error) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		ok := false
 		tx, err := s.DB.Begin()
 		if err != nil {

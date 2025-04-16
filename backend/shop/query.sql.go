@@ -646,6 +646,66 @@ func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Ord
 	return items, nil
 }
 
+const lookupOrderFromItem = `-- name: LookupOrderFromItem :many
+SELECT
+	orders.id, orders.order_id, orders.name, orders.matric_number, orders.email, orders.payment_reference, orders.payment_time, orders.collection_time, orders.cancelled, orders.coupon_id
+FROM
+	orders
+WHERE
+	EXISTS(
+		SELECT
+			1
+		FROM
+			order_items
+		WHERE
+			order_items.order_id = orders.order_id
+			AND order_items.product_name = ?1 COLLATE NOCASE
+			AND order_items.variant = ?2 COLLATE NOCASE
+	)
+	AND orders.collection_time IS NULL
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+`
+
+type LookupOrderFromItemParams struct {
+	ProductName string
+	Variant     string
+}
+
+func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromItemParams) ([]Order, error) {
+	rows, err := q.db.QueryContext(ctx, lookupOrderFromItem, arg.ProductName, arg.Variant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Order
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.Name,
+			&i.MatricNumber,
+			&i.Email,
+			&i.PaymentReference,
+			&i.PaymentTime,
+			&i.CollectionTime,
+			&i.Cancelled,
+			&i.CouponID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCouponEnabled = `-- name: SetCouponEnabled :exec
 UPDATE
 	coupons
