@@ -27,12 +27,13 @@
 		{ text: 'Coupons' },
 		{ text: 'Admin Users' },
 		{ text: 'Order Collection' },
-		{ text: 'Unfulfilled Order Summary' }
+		{ text: 'Order Summary' }
 	]
 	let selected: string | undefined = $state(undefined)
 
 	let orderCollection: OrderCollection | undefined = $state(undefined)
 	const searchOrder = (value: string) => {
+		if (!value) return
 		selected = 'Order Collection'
 		setTimeout(() => orderCollection?.search(value))
 	}
@@ -52,7 +53,7 @@
 			<OrderCollection bind:this={orderCollection} />
 		{:else if selected === 'Coupons'}
 			<CouponEdit />
-		{:else if selected === 'Unfulfilled Order Summary'}
+		{:else if selected === 'Order Summary'}
 			<OrderSummary {searchOrder} />
 		{/if}
 	</ErrorBoundary>

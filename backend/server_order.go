@@ -195,10 +195,11 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	ctx := req.Context()
-	summary, err := s.Queries.UnfulfilledOrderSummary(ctx)
+	showCollected := req.URL.Query().Get("show_collected") != ""
+	summary, err := s.Queries.OrderSummary(ctx, !showCollected)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		summary = []shop.UnfulfilledOrderSummaryRow{}
+		summary = []shop.OrderSummaryRow{}
 	case err != nil:
 		slog.Error("error fetching order summary", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -180,11 +180,10 @@ WHERE
 			AND order_items.product_name = @product_name COLLATE NOCASE
 			AND order_items.variant = @variant COLLATE NOCASE
 	)
-	AND orders.collection_time IS NULL
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE;
 
--- name: UnfulfilledOrderSummary :many
+-- name: OrderSummary :many
 SELECT
 	order_items.product_id, order_items.product_name, order_items.variant,
 	SUM(order_items.amount)
@@ -192,7 +191,10 @@ FROM
 	orders
 	JOIN order_items ON orders.order_id = order_items.order_id
 WHERE
-	orders.collection_time IS NULL
+	(
+		orders.collection_time IS NULL
+		OR CAST(@show_only_collected AS BOOLEAN) = FALSE
+	)
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
 GROUP BY

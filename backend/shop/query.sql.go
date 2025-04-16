@@ -662,7 +662,6 @@ WHERE
 			AND order_items.product_name = ?1 COLLATE NOCASE
 			AND order_items.variant = ?2 COLLATE NOCASE
 	)
-	AND orders.collection_time IS NULL
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
 `
@@ -692,6 +691,59 @@ func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromIt
 			&i.CollectionTime,
 			&i.Cancelled,
 			&i.CouponID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const orderSummary = `-- name: OrderSummary :many
+SELECT
+	order_items.product_id, order_items.product_name, order_items.variant,
+	SUM(order_items.amount)
+FROM
+	orders
+	JOIN order_items ON orders.order_id = order_items.order_id
+WHERE
+	(
+		orders.collection_time IS NULL
+		OR CAST(?1 AS BOOLEAN) = FALSE
+	)
+	AND orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+GROUP BY
+	order_items.product_id, order_items.product_name, order_items.variant
+`
+
+type OrderSummaryRow struct {
+	ProductID   string
+	ProductName string
+	Variant     string
+	Sum         sql.NullFloat64
+}
+
+func (q *Queries) OrderSummary(ctx context.Context, showOnlyCollected bool) ([]OrderSummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, orderSummary, showOnlyCollected)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrderSummaryRow
+	for rows.Next() {
+		var i OrderSummaryRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.Variant,
+			&i.Sum,
 		); err != nil {
 			return nil, err
 		}
@@ -796,56 +848,6 @@ func (q *Queries) UnfulfilledOrderIDs(ctx context.Context, maxCount int64) ([]st
 			return nil, err
 		}
 		items = append(items, order_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const unfulfilledOrderSummary = `-- name: UnfulfilledOrderSummary :many
-SELECT
-	order_items.product_id, order_items.product_name, order_items.variant,
-	SUM(order_items.amount)
-FROM
-	orders
-	JOIN order_items ON orders.order_id = order_items.order_id
-WHERE
-	orders.collection_time IS NULL
-	AND orders.payment_time IS NOT NULL
-	AND orders.cancelled = FALSE
-GROUP BY
-	order_items.product_id, order_items.product_name, order_items.variant
-`
-
-type UnfulfilledOrderSummaryRow struct {
-	ProductID   string
-	ProductName string
-	Variant     string
-	Sum         sql.NullFloat64
-}
-
-func (q *Queries) UnfulfilledOrderSummary(ctx context.Context) ([]UnfulfilledOrderSummaryRow, error) {
-	rows, err := q.db.QueryContext(ctx, unfulfilledOrderSummary)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []UnfulfilledOrderSummaryRow
-	for rows.Next() {
-		var i UnfulfilledOrderSummaryRow
-		if err := rows.Scan(
-			&i.ProductID,
-			&i.ProductName,
-			&i.Variant,
-			&i.Sum,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

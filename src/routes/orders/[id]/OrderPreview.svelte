@@ -1,23 +1,23 @@
 <script lang="ts">
-	import type { Order } from '$lib/api';
-	import { formatDate } from '$lib/util';
-	import Button from '$lib/Button.svelte';
-	import IconChevronDown from '$lib/IconChevronDown.svelte';
-	import IconChevronUp from '$lib/IconChevronUp.svelte';
-	import Invoice from '$lib/Invoice.svelte';
+	import type { Order } from '$lib/api'
+	import { formatDate } from '$lib/util'
+	import Button from '$lib/Button.svelte'
+	import IconChevronDown from '$lib/IconChevronDown.svelte'
+	import IconChevronUp from '$lib/IconChevronUp.svelte'
+	import Invoice from '$lib/Invoice.svelte'
 
-	export let order: Order;
-	export let expanded = false;
-	export let userFacing = false;
-	export let collect: (() => any) | null = null;
-	export let cancel: (() => any) | null = null;
+	export let order: Order
+	export let expanded = false
+	export let userFacing = false
+	export let collect: (() => any) | null = null
+	export let cancel: (() => any) | null = null
 
-	let content: HTMLDivElement;
+	let content: HTMLDivElement
 	const toggleExpanded = () => {
-		expanded = !expanded;
-	};
+		expanded = !expanded
+	}
 
-	$: maxHeight = expanded && content ? `${content.clientHeight}px` : '0px';
+	$: maxHeight = expanded && content ? `${content.clientHeight}px` : '0px'
 	$: orderStatus =
 		order.collectionTime !== null
 			? ('COLLECTED' as const)
@@ -25,14 +25,14 @@
 				? ('CANCELLED' as const)
 				: order.paymentTime === null
 					? ('PAYMENT PENDING' as const)
-					: ('UNCOLLECTED' as const);
+					: ('UNCOLLECTED' as const)
 
 	const pillColors = {
 		COLLECTED: 'bg-gray-400',
 		CANCELLED: 'bg-red-400',
 		'PAYMENT PENDING': 'bg-red-400',
 		UNCOLLECTED: null
-	} as const;
+	} as const
 	const messages = {
 		COLLECTED: {
 			text: 'Your merch has been collected. Enjoy your merch!',
@@ -50,11 +50,11 @@
 			text: 'Your order has been confirmed!\nWe will send details on merch collection to your NTU email once they are ready.',
 			css: 'border-green-400 bg-green-100'
 		}
-	} as const;
+	} as const
 
-	$: bgColor = orderStatus === 'UNCOLLECTED' ? 'bg-white' : 'bg-gray-200';
-	$: pillColor = pillColors[orderStatus];
-	$: message = messages[orderStatus];
+	$: bgColor = orderStatus === 'UNCOLLECTED' ? 'bg-white' : 'bg-gray-200'
+	$: pillColor = pillColors[orderStatus]
+	$: message = messages[orderStatus]
 </script>
 
 <div class={`w-full shadow-md lg:w-1/2 ${bgColor}`}>
@@ -105,7 +105,7 @@
 				</div>
 			</div>
 			<hr />
-			<Invoice items={order.items} coupon={order.coupon} />
+			<Invoice bind:items={order.items} coupon={order.coupon} />
 			<div class="flex w-full justify-end gap-2">
 				{#if order.paymentTime === null && !order.cancelled && cancel}
 					<Button onClick={cancel}>Cancel</Button>

@@ -26,6 +26,7 @@
 	})
 
 	const searchOrders = async () => {
+		if (!orderInput) return
 		try {
 			pastSearches = [orderInput, ...pastSearches]
 			// Remove duplicate entries.
@@ -34,7 +35,15 @@
 				pastSearches = pastSearches.slice(1)
 			}
 			window.localStorage.setItem('adminSearchHistory', JSON.stringify(pastSearches))
-			orders = await listOrders(orderInput, { includeCancelled, allowFromItem: true })
+			const apiOrders = await listOrders(orderInput, { includeCancelled, allowFromItem: true })
+			orders = apiOrders.sort((a, b) => {
+				if (a.collectionTime != b.collectionTime) {
+					if (a.collectionTime === null) return -1
+					if (b.collectionTime === null) return 1
+					return a.collectionTime > b.collectionTime ? -1 : 1
+				}
+				return a.id < b.id ? -1 : 1
+			})
 			emptyResponse = orders.length === 0
 		} catch (e) {
 			error = e
@@ -74,7 +83,7 @@
 	</label>
 	<Button size="md" onClick={searchOrders} bind:this={searchButton}>Search</Button>
 </div>
-<div class="flex flex-wrap gap-4">
+<div class="flex flex-wrap gap-x-4">
 	{#if pastSearches.length > 0}
 		Past Search:
 		{#each pastSearches as keyword}
@@ -90,7 +99,11 @@
 <ErrorBoundary {error} />
 <div class="flex flex-col gap-4">
 	{#if emptyResponse}No orders matched.{/if}
-	{#each orders as order (order.id)}
-		<OrderPreview {order} collect={markCollect(order.id)} cancel={markCancel(order.id)} />
+	{#each orders as order, i (order.id)}
+		<OrderPreview
+			bind:order={orders[i]}
+			collect={markCollect(order.id)}
+			cancel={markCancel(order.id)}
+		/>
 	{/each}
 </div>

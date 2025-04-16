@@ -223,7 +223,7 @@ export const updateStoreClosure = async (closure: StoreClosure): Promise<StoreCl
 	})
 }
 
-const UnfulfilledOrderSummary = z.object({
+const OrderSummary = z.object({
 	unfulfilled: z
 		.object({
 			name: z.string(),
@@ -233,6 +233,9 @@ const UnfulfilledOrderSummary = z.object({
 		.array(),
 	order_id_samples: z.string().array()
 })
-export type UnfulfilledOrderSummary = z.infer<typeof UnfulfilledOrderSummary>
-export const unfulfilledOrderSummary = (): Promise<UnfulfilledOrderSummary> =>
-	handleFetch(UnfulfilledOrderSummary, `${API_URL}/order_summary`)
+export type OrderSummary = z.infer<typeof OrderSummary>
+export const orderSummary = (showFulfilled: boolean): Promise<OrderSummary> => {
+	let url = `${API_URL}/order_summary`
+	if (showFulfilled) url += '?show_collected=1'
+	return handleFetch(OrderSummary, url)
+}
