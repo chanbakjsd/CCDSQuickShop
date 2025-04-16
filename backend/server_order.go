@@ -186,8 +186,10 @@ type OrderSummaryEntry struct {
 }
 
 type OrderSummaryResponse struct {
-	Unfulfilled    []OrderSummaryEntry `json:"unfulfilled"`
-	OrderIDSamples []string            `json:"order_id_samples"`
+	Unfulfilled           []OrderSummaryEntry `json:"unfulfilled"`
+	OrderIDSamples        []string            `json:"order_id_samples"`
+	UnfulfilledOrderCount int                 `json:"unfulfilled_order_count"`
+	FulfilledOrderCount   int                 `json:"fulfilled_order_count"`
 }
 
 func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
@@ -222,9 +224,28 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 			Count:   int(v.Sum.Float64),
 		})
 	}
+	unfulfilledCount := 0
+	fulfilledCount := 0
+	orderCount, err := s.Queries.OrderNumberStats(ctx)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+	case err != nil:
+		slog.Error("error fetching order number statistics", "err", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	for _, count := range orderCount {
+		if count.Uncollected {
+			unfulfilledCount = int(count.OrderCount)
+		} else {
+			fulfilledCount = int(count.OrderCount)
+		}
+	}
 	if err := json.NewEncoder(w).Encode(OrderSummaryResponse{
-		Unfulfilled:    entries,
-		OrderIDSamples: orderIDs,
+		Unfulfilled:           entries,
+		OrderIDSamples:        orderIDs,
+		UnfulfilledOrderCount: unfulfilledCount,
+		FulfilledOrderCount:   fulfilledCount,
 	}); err != nil {
 		slog.Error("error writing order summary response", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

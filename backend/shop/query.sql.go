@@ -705,6 +705,47 @@ func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromIt
 	return items, nil
 }
 
+const orderNumberStats = `-- name: OrderNumberStats :many
+SELECT
+	CAST((orders.collection_time IS NULL) AS BOOLEAN) AS uncollected,
+	COUNT(orders.order_id) AS order_count
+FROM
+	orders
+WHERE
+	orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+GROUP BY
+	orders.collection_time IS NULL
+`
+
+type OrderNumberStatsRow struct {
+	Uncollected bool
+	OrderCount  int64
+}
+
+func (q *Queries) OrderNumberStats(ctx context.Context) ([]OrderNumberStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, orderNumberStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrderNumberStatsRow
+	for rows.Next() {
+		var i OrderNumberStatsRow
+		if err := rows.Scan(&i.Uncollected, &i.OrderCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const orderSummary = `-- name: OrderSummary :many
 SELECT
 	order_items.product_id, order_items.product_name, order_items.variant,

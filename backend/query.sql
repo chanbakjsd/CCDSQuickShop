@@ -200,6 +200,18 @@ WHERE
 GROUP BY
 	order_items.product_id, order_items.product_name, order_items.variant;
 
+-- name: OrderNumberStats :many
+SELECT
+	CAST((orders.collection_time IS NULL) AS BOOLEAN) AS uncollected,
+	COUNT(orders.order_id) AS order_count
+FROM
+	orders
+WHERE
+	orders.payment_time IS NOT NULL
+	AND orders.cancelled = FALSE
+GROUP BY
+	orders.collection_time IS NULL;
+
 -- name: UnfulfilledOrderIDs :many
 SELECT
 	order_id

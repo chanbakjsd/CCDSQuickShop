@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
 	import { orderSummary, type OrderSummary } from '$lib/api'
 	import Button from '$lib/Button.svelte'
 	import { constructTables } from './summary'
@@ -20,13 +19,19 @@
 			error = e
 		}
 	}
-	onMount(refresh)
 	$effect(() => {
 		const _ = showCollected
 		refresh()
 	})
-
-	const MAX_SAMPLE = 10
+	const totalOrderCount = $derived(
+		(summary?.unfulfilled_order_count ?? 0) + (summary?.fulfilled_order_count ?? 0)
+	)
+	const fulfillmentRatio = $derived(
+		(summary?.fulfilled_order_count ?? 0) / Math.max(1, totalOrderCount)
+	)
+	const totalItemCount = $derived(
+		summary ? summary.unfulfilled.reduce((acc, x) => acc + x.count, 0) : 0
+	)
 
 	const search = (label: string) => () => searchOrder(label)
 	const summaryTables = $derived.by(() => {
@@ -45,6 +50,18 @@
 	</div>
 	<ErrorBoundary {error} />
 	<div class="flex flex-col gap-1">
+		<h2 class="text-xl">Order Statistics</h2>
+		<div class="flex flex-col">
+			<span>
+				Fulfilled Orders: {summary?.fulfilled_order_count} / {totalOrderCount}
+				({Math.round(fulfillmentRatio * 1000) / 10}%)
+			</span>
+			<span>
+				{showCollected ? 'Sold' : 'Unfulfilled'} Item Count: {totalItemCount}
+			</span>
+		</div>
+	</div>
+	<div class="flex flex-col gap-1">
 		{#if summary}
 			<h2 class="text-xl">Unfulfilled Order IDs</h2>
 			<div class="flex flex-wrap gap-x-2">
@@ -53,7 +70,7 @@
 						{order_id}
 					</button>
 				{/each}
-				{#if summary.order_id_samples.length >= MAX_SAMPLE}
+				{#if summary.order_id_samples.length < summary.unfulfilled_order_count}
 					<span>(and more)</span>
 				{/if}
 			</div>
@@ -61,8 +78,8 @@
 	</div>
 	<div class="flex flex-col gap-1">
 		<h2 class="text-xl">
-			{#if !showCollected}Unfulfilled
-			{/if} Items
+			{showCollected ? 'Sold' : 'Unfulfilled'}
+			Items
 		</h2>
 		{#each summaryTables as tbl}
 			<h3 class="mt-4 text-lg">{tbl.name}</h3>

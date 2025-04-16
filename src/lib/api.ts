@@ -231,7 +231,9 @@ const OrderSummary = z.object({
 			count: z.number()
 		})
 		.array(),
-	order_id_samples: z.string().array()
+	order_id_samples: z.string().array(),
+	unfulfilled_order_count: z.number(),
+	fulfilled_order_count: z.number()
 })
 export type OrderSummary = z.infer<typeof OrderSummary>
 export const orderSummary = (showFulfilled: boolean): Promise<OrderSummary> => {
