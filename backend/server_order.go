@@ -53,7 +53,6 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 	})
 	if (err == nil || errors.Is(err, sql.ErrNoRows)) && allowFromItem && strings.Contains(orderID, ", ") {
 		split := strings.SplitN(orderID, ", ", 2)
-		slog.Info("Searching", "Product", split[0], "Variant", split[1])
 		orders, dbErr := s.Queries.LookupOrderFromItem(ctx, shop.LookupOrderFromItemParams{
 			ProductName: split[0],
 			Variant:     split[1],
