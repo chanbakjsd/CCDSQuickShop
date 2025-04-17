@@ -32,7 +32,7 @@
 			// Remove duplicate entries.
 			pastSearches = pastSearches.filter((x, i) => pastSearches.indexOf(x) === i)
 			if (pastSearches.length > 5) {
-				pastSearches = pastSearches.slice(1)
+				pastSearches = pastSearches.slice(0, pastSearches.length-1)
 			}
 			window.localStorage.setItem('adminSearchHistory', JSON.stringify(pastSearches))
 			const apiOrders = await listOrders(orderInput, { includeCancelled, allowFromItem: true })
