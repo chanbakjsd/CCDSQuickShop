@@ -10,7 +10,10 @@ CREATE TABLE products (
 	variants           TEXT NOT NULL,
 	variant_image_urls TEXT NOT NULL,
 	enabled            BOOLEAN NOT NULL
-);
+, sale_period
+	INTEGER NOT NULL
+	REFERENCES sale_periods(id)
+	DEFAULT 1);
 CREATE TABLE coupons (
 	coupon_id             INTEGER PRIMARY KEY,
 	coupon_code           TEXT NOT NULL,
@@ -21,7 +24,10 @@ CREATE TABLE coupons (
 	enabled               BOOLEAN NOT NULL,
 	public                BOOLEAN NOT NULL,
 	redemption_limit      INTEGER -- Not actually tracked by this server but Stripe instead.
-);
+, sale_period
+	INTEGER NOT NULL
+	REFERENCES sale_periods(id)
+	DEFAULT 1);
 CREATE TABLE orders (
 	id                INTEGER PRIMARY KEY,
 	order_id          TEXT UNIQUE NOT NULL,
@@ -33,7 +39,10 @@ CREATE TABLE orders (
 	collection_time   DATETIME,
 	cancelled         BOOLEAN NOT NULL,
 	coupon_id         INTEGER REFERENCES coupons(coupon_id)
-);
+, sale_period
+	INTEGER NOT NULL
+	REFERENCES sale_periods(id)
+	DEFAULT 1);
 CREATE TABLE order_items (
 	order_id     TEXT    NOT NULL REFERENCES orders(order_id),
 	product_id   TEXT    NOT NULL REFERENCES products(product_id),
@@ -53,6 +62,13 @@ CREATE TABLE store_closures (
 	deleted           BOOLEAN NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "schema_migrations" (version varchar(128) primary key);
+CREATE TABLE sale_periods (
+	id          INTEGER PRIMARY KEY,
+	admin_name  TEXT NOT NULL,
+	start_time  DATETIME NOT NULL,
+	delete_time DATETIME
+);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
-  ('20250505031917');
+  ('20250505031917'),
+  ('20250505035817');

@@ -1,41 +1,41 @@
 <script lang="ts">
-	import { uploadImage } from '$lib/api';
-	import Button from '$lib/Button.svelte';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
-	import type { ChangeEventHandler } from 'svelte/elements';
+	import { uploadImage } from '$lib/api'
+	import Button from '$lib/Button.svelte'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
+	import type { ChangeEventHandler } from 'svelte/elements'
 
 	interface Props {
-		value: string;
+		value: string
 	}
-	let { value }: Props = $props();
+	let { value = $bindable() }: Props = $props()
 
-	let fileSelect: HTMLInputElement;
-	let resolveFileSelect: ((filelist: FileList) => void) | undefined = undefined;
-	let rejectFileSelect: (() => void) | undefined = undefined;
-	let uploadError: unknown = $state();
+	let fileSelect: HTMLInputElement
+	let resolveFileSelect: ((filelist: FileList) => void) | undefined = undefined
+	let rejectFileSelect: (() => void) | undefined = undefined
+	let uploadError: unknown = $state()
 	const upload = async () => {
-		fileSelect.click();
+		fileSelect.click()
 		const files = await new Promise<FileList>((resolve, rej) => {
-			resolveFileSelect = resolve;
-			rejectFileSelect = rej;
-		});
+			resolveFileSelect = resolve
+			rejectFileSelect = rej
+		})
 		if (files.length === 0) {
-			return;
+			return
 		}
 		try {
-			value = await uploadImage(files[0]);
+			value = await uploadImage(files[0])
 		} catch (e) {
-			uploadError = e;
+			uploadError = e
 		}
-	};
+	}
 
 	const selectFile: ChangeEventHandler<HTMLInputElement> = (e) => {
 		if (!e.currentTarget.files) {
-			if (rejectFileSelect) rejectFileSelect();
-			return;
+			if (rejectFileSelect) rejectFileSelect()
+			return
 		}
-		if (resolveFileSelect) resolveFileSelect(e.currentTarget.files);
-	};
+		if (resolveFileSelect) resolveFileSelect(e.currentTarget.files)
+	}
 </script>
 
 <div class="flex gap-2">

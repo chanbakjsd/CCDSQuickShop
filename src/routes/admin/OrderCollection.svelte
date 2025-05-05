@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { cancelOrder, collectOrder, listOrders, type Order } from '$lib/api'
+	import { sortOrder } from '$lib/util'
 	import Button from '$lib/Button.svelte'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 	import Input from '$lib/Input.svelte'
@@ -32,18 +33,10 @@
 			// Remove duplicate entries.
 			pastSearches = pastSearches.filter((x, i) => pastSearches.indexOf(x) === i)
 			if (pastSearches.length > 5) {
-				pastSearches = pastSearches.slice(0, pastSearches.length-1)
+				pastSearches = pastSearches.slice(0, pastSearches.length - 1)
 			}
 			window.localStorage.setItem('adminSearchHistory', JSON.stringify(pastSearches))
-			const apiOrders = await listOrders(orderInput, { includeCancelled, allowFromItem: true })
-			orders = apiOrders.sort((a, b) => {
-				if (a.collectionTime != b.collectionTime) {
-					if (a.collectionTime === null) return -1
-					if (b.collectionTime === null) return 1
-					return a.collectionTime > b.collectionTime ? -1 : 1
-				}
-				return a.id < b.id ? -1 : 1
-			})
+			orders = sortOrder(await listOrders(orderInput, { includeCancelled, allowFromItem: true }))
 			emptyResponse = orders.length === 0
 		} catch (e) {
 			error = e

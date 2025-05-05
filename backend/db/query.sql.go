@@ -97,7 +97,7 @@ func (q *Queries) CountAdminUsers(ctx context.Context) (int64, error) {
 
 const couponByID = `-- name: CouponByID :one
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit, sale_period
 FROM
 	coupons
 WHERE
@@ -117,22 +117,29 @@ func (q *Queries) CouponByID(ctx context.Context, couponID int64) (Coupon, error
 		&i.Enabled,
 		&i.Public,
 		&i.RedemptionLimit,
+		&i.SalePeriod,
 	)
 	return i, err
 }
 
 const couponEnabledByCode = `-- name: CouponEnabledByCode :one
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit, sale_period
 FROM
 	coupons
 WHERE
 	coupon_code = ?
 	AND enabled = TRUE
+	AND sale_period = ?
 `
 
-func (q *Queries) CouponEnabledByCode(ctx context.Context, couponCode string) (Coupon, error) {
-	row := q.db.QueryRowContext(ctx, couponEnabledByCode, couponCode)
+type CouponEnabledByCodeParams struct {
+	CouponCode string
+	SalePeriod int64
+}
+
+func (q *Queries) CouponEnabledByCode(ctx context.Context, arg CouponEnabledByCodeParams) (Coupon, error) {
+	row := q.db.QueryRowContext(ctx, couponEnabledByCode, arg.CouponCode, arg.SalePeriod)
 	var i Coupon
 	err := row.Scan(
 		&i.CouponID,
@@ -144,6 +151,7 @@ func (q *Queries) CouponEnabledByCode(ctx context.Context, couponCode string) (C
 		&i.Enabled,
 		&i.Public,
 		&i.RedemptionLimit,
+		&i.SalePeriod,
 	)
 	return i, err
 }
@@ -163,9 +171,9 @@ func (q *Queries) CreateAdminUser(ctx context.Context, email string) error {
 
 const createCoupon = `-- name: CreateCoupon :one
 INSERT INTO coupons (
-	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public
+	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public, sale_period
 ) VALUES (
-	?, ?, ?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?, ?
 ) RETURNING coupon_id
 `
 
@@ -177,6 +185,7 @@ type CreateCouponParams struct {
 	DiscountPercentage  int64
 	Enabled             bool
 	Public              bool
+	SalePeriod          int64
 }
 
 func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int64, error) {
@@ -188,6 +197,7 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int
 		arg.DiscountPercentage,
 		arg.Enabled,
 		arg.Public,
+		arg.SalePeriod,
 	)
 	var coupon_id int64
 	err := row.Scan(&coupon_id)
@@ -196,9 +206,9 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) (int
 
 const createOrder = `-- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id, sale_period
 ) VALUES (
-	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?
+	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?, ?
 )
 `
 
@@ -208,6 +218,7 @@ type CreateOrderParams struct {
 	MatricNumber string
 	Email        string
 	CouponID     sql.NullInt64
+	SalePeriod   int64
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error {
@@ -217,6 +228,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) error 
 		arg.MatricNumber,
 		arg.Email,
 		arg.CouponID,
+		arg.SalePeriod,
 	)
 	return err
 }
@@ -254,9 +266,9 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 
 const createProduct = `-- name: CreateProduct :one
 INSERT INTO products (
-	name, base_price, default_image_url, variants, variant_image_urls, enabled
+	name, base_price, default_image_url, variants, variant_image_urls, enabled, sale_period
 ) VALUES (
-	?, ?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 ) RETURNING product_id
 `
 
@@ -267,6 +279,7 @@ type CreateProductParams struct {
 	Variants         string
 	VariantImageUrls string
 	Enabled          bool
+	SalePeriod       int64
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (int64, error) {
@@ -277,10 +290,32 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (i
 		arg.Variants,
 		arg.VariantImageUrls,
 		arg.Enabled,
+		arg.SalePeriod,
 	)
 	var product_id int64
 	err := row.Scan(&product_id)
 	return product_id, err
+}
+
+const createSalePeriod = `-- name: CreateSalePeriod :one
+INSERT INTO sale_periods (
+	admin_name, start_time, delete_time
+) VALUES (
+	?, ?, NULL
+) RETURNING
+	id
+`
+
+type CreateSalePeriodParams struct {
+	AdminName string
+	StartTime time.Time
+}
+
+func (q *Queries) CreateSalePeriod(ctx context.Context, arg CreateSalePeriodParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createSalePeriod, arg.AdminName, arg.StartTime)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const createStoreClosure = `-- name: CreateStoreClosure :one
@@ -305,6 +340,27 @@ func (q *Queries) CreateStoreClosure(ctx context.Context, arg CreateStoreClosure
 		arg.UserMessage,
 		arg.AllowOrderCheck,
 	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const currentSalePeriod = `-- name: CurrentSalePeriod :one
+SELECT
+	id
+FROM
+	sale_periods
+WHERE
+	start_time <= date('now')
+	AND delete_time IS NULL
+ORDER BY
+	start_time DESC
+LIMIT
+	1
+`
+
+func (q *Queries) CurrentSalePeriod(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, currentSalePeriod)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -385,13 +441,15 @@ func (q *Queries) ListAdminUsers(ctx context.Context) ([]string, error) {
 
 const listCoupons = `-- name: ListCoupons :many
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit, sale_period
 FROM
 	coupons
+WHERE
+	sale_period = ?
 `
 
-func (q *Queries) ListCoupons(ctx context.Context) ([]Coupon, error) {
-	rows, err := q.db.QueryContext(ctx, listCoupons)
+func (q *Queries) ListCoupons(ctx context.Context, salePeriod int64) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listCoupons, salePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -409,6 +467,7 @@ func (q *Queries) ListCoupons(ctx context.Context) ([]Coupon, error) {
 			&i.Enabled,
 			&i.Public,
 			&i.RedemptionLimit,
+			&i.SalePeriod,
 		); err != nil {
 			return nil, err
 		}
@@ -465,16 +524,24 @@ func (q *Queries) ListOrderItems(ctx context.Context, orderID string) ([]OrderIt
 
 const listProducts = `-- name: ListProducts :many
 SELECT
-	product_id, name, base_price, default_image_url, variants, variant_image_urls, enabled
+	product_id, name, base_price, default_image_url, variants, variant_image_urls, enabled, sale_period
 FROM
 	products
 WHERE
-	enabled = TRUE
-	OR CAST(?1 AS BOOLEAN)
+	(
+		enabled = TRUE
+		OR CAST(? AS BOOLEAN)
+	)
+	AND sale_period = ?
 `
 
-func (q *Queries) ListProducts(ctx context.Context, includeDisabled bool) ([]Product, error) {
-	rows, err := q.db.QueryContext(ctx, listProducts, includeDisabled)
+type ListProductsParams struct {
+	IncludeDisabled bool
+	SalePeriod      int64
+}
+
+func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, listProducts, arg.IncludeDisabled, arg.SalePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -490,6 +557,7 @@ func (q *Queries) ListProducts(ctx context.Context, includeDisabled bool) ([]Pro
 			&i.Variants,
 			&i.VariantImageUrls,
 			&i.Enabled,
+			&i.SalePeriod,
 		); err != nil {
 			return nil, err
 		}
@@ -506,16 +574,17 @@ func (q *Queries) ListProducts(ctx context.Context, includeDisabled bool) ([]Pro
 
 const listPublicCoupons = `-- name: ListPublicCoupons :many
 SELECT
-	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit
+	coupon_id, coupon_code, stripe_id, min_purchase_quantity, email_match, discount_percentage, enabled, public, redemption_limit, sale_period
 FROM
 	coupons
 WHERE
 	enabled = TRUE
 	AND public = TRUE
+	AND sale_period = ?
 `
 
-func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicCoupons)
+func (q *Queries) ListPublicCoupons(ctx context.Context, salePeriod int64) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicCoupons, salePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -533,6 +602,42 @@ func (q *Queries) ListPublicCoupons(ctx context.Context) ([]Coupon, error) {
 			&i.Enabled,
 			&i.Public,
 			&i.RedemptionLimit,
+			&i.SalePeriod,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSalePeriods = `-- name: ListSalePeriods :many
+SELECT
+	id, admin_name, start_time, delete_time
+FROM
+	sale_periods
+`
+
+func (q *Queries) ListSalePeriods(ctx context.Context) ([]SalePeriod, error) {
+	rows, err := q.db.QueryContext(ctx, listSalePeriods)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SalePeriod
+	for rows.Next() {
+		var i SalePeriod
+		if err := rows.Scan(
+			&i.ID,
+			&i.AdminName,
+			&i.StartTime,
+			&i.DeleteTime,
 		); err != nil {
 			return nil, err
 		}
@@ -588,9 +693,11 @@ func (q *Queries) ListStoreClosures(ctx context.Context) ([]StoreClosure, error)
 
 const lookupOrder = `-- name: LookupOrder :many
 SELECT
-	id, order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	orders.id, orders.order_id, orders.name, orders.matric_number, orders.email, orders.payment_reference, orders.payment_time, orders.collection_time, orders.cancelled, orders.coupon_id, orders.sale_period,
+	sale_periods.admin_name
 FROM
 	orders
+	JOIN sale_periods ON orders.sale_period = sale_periods.id
 WHERE
 	(
 		order_id = ?1 COLLATE NOCASE
@@ -612,15 +719,30 @@ type LookupOrderParams struct {
 	IncludeCancelled bool
 }
 
-func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Order, error) {
+type LookupOrderRow struct {
+	ID               int64
+	OrderID          string
+	Name             string
+	MatricNumber     string
+	Email            string
+	PaymentReference sql.NullString
+	PaymentTime      sql.NullTime
+	CollectionTime   sql.NullTime
+	Cancelled        bool
+	CouponID         sql.NullInt64
+	SalePeriod       int64
+	AdminName        string
+}
+
+func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]LookupOrderRow, error) {
 	rows, err := q.db.QueryContext(ctx, lookupOrder, arg.ID, arg.IncludeCancelled)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Order
+	var items []LookupOrderRow
 	for rows.Next() {
-		var i Order
+		var i LookupOrderRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
@@ -632,6 +754,8 @@ func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Ord
 			&i.CollectionTime,
 			&i.Cancelled,
 			&i.CouponID,
+			&i.SalePeriod,
+			&i.AdminName,
 		); err != nil {
 			return nil, err
 		}
@@ -648,9 +772,11 @@ func (q *Queries) LookupOrder(ctx context.Context, arg LookupOrderParams) ([]Ord
 
 const lookupOrderFromItem = `-- name: LookupOrderFromItem :many
 SELECT
-	orders.id, orders.order_id, orders.name, orders.matric_number, orders.email, orders.payment_reference, orders.payment_time, orders.collection_time, orders.cancelled, orders.coupon_id
+	orders.id, orders.order_id, orders.name, orders.matric_number, orders.email, orders.payment_reference, orders.payment_time, orders.collection_time, orders.cancelled, orders.coupon_id, orders.sale_period,
+	sale_periods.admin_name
 FROM
 	orders
+	JOIN sale_periods ON orders.sale_period = sale_periods.id
 WHERE
 	EXISTS(
 		SELECT
@@ -671,15 +797,30 @@ type LookupOrderFromItemParams struct {
 	Variant     string
 }
 
-func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromItemParams) ([]Order, error) {
+type LookupOrderFromItemRow struct {
+	ID               int64
+	OrderID          string
+	Name             string
+	MatricNumber     string
+	Email            string
+	PaymentReference sql.NullString
+	PaymentTime      sql.NullTime
+	CollectionTime   sql.NullTime
+	Cancelled        bool
+	CouponID         sql.NullInt64
+	SalePeriod       int64
+	AdminName        string
+}
+
+func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromItemParams) ([]LookupOrderFromItemRow, error) {
 	rows, err := q.db.QueryContext(ctx, lookupOrderFromItem, arg.ProductName, arg.Variant)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Order
+	var items []LookupOrderFromItemRow
 	for rows.Next() {
-		var i Order
+		var i LookupOrderFromItemRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
@@ -691,6 +832,8 @@ func (q *Queries) LookupOrderFromItem(ctx context.Context, arg LookupOrderFromIt
 			&i.CollectionTime,
 			&i.Cancelled,
 			&i.CouponID,
+			&i.SalePeriod,
+			&i.AdminName,
 		); err != nil {
 			return nil, err
 		}
@@ -714,6 +857,7 @@ FROM
 WHERE
 	orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 GROUP BY
 	orders.collection_time IS NULL
 `
@@ -723,8 +867,8 @@ type OrderNumberStatsRow struct {
 	OrderCount  int64
 }
 
-func (q *Queries) OrderNumberStats(ctx context.Context) ([]OrderNumberStatsRow, error) {
-	rows, err := q.db.QueryContext(ctx, orderNumberStats)
+func (q *Queries) OrderNumberStats(ctx context.Context, salePeriod int64) ([]OrderNumberStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, orderNumberStats, salePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -756,13 +900,19 @@ FROM
 WHERE
 	(
 		orders.collection_time IS NULL
-		OR CAST(?1 AS BOOLEAN) = FALSE
+		OR CAST(? AS BOOLEAN) = FALSE
 	)
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 GROUP BY
 	order_items.product_id, order_items.product_name, order_items.variant
 `
+
+type OrderSummaryParams struct {
+	ShowOnlyCollected bool
+	SalePeriod        int64
+}
 
 type OrderSummaryRow struct {
 	ProductID   string
@@ -771,8 +921,8 @@ type OrderSummaryRow struct {
 	Sum         sql.NullFloat64
 }
 
-func (q *Queries) OrderSummary(ctx context.Context, showOnlyCollected bool) ([]OrderSummaryRow, error) {
-	rows, err := q.db.QueryContext(ctx, orderSummary, showOnlyCollected)
+func (q *Queries) OrderSummary(ctx context.Context, arg OrderSummaryParams) ([]OrderSummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, orderSummary, arg.ShowOnlyCollected, arg.SalePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -872,12 +1022,18 @@ WHERE
 	orders.collection_time IS NULL
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 LIMIT
-	?1
+	?
 `
 
-func (q *Queries) UnfulfilledOrderIDs(ctx context.Context, maxCount int64) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, unfulfilledOrderIDs, maxCount)
+type UnfulfilledOrderIDsParams struct {
+	SalePeriod int64
+	MaxCount   int64
+}
+
+func (q *Queries) UnfulfilledOrderIDs(ctx context.Context, arg UnfulfilledOrderIDsParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, unfulfilledOrderIDs, arg.SalePeriod, arg.MaxCount)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,6 +1172,28 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.Enabled,
 		arg.ProductID,
 	)
+	return err
+}
+
+const updateSalePeriod = `-- name: UpdateSalePeriod :exec
+UPDATE
+	sale_periods
+SET
+	admin_name = ?,
+	start_time = ?
+WHERE
+	id = ?
+	AND delete_time IS NULL
+`
+
+type UpdateSalePeriodParams struct {
+	AdminName string
+	StartTime time.Time
+	ID        int64
+}
+
+func (q *Queries) UpdateSalePeriod(ctx context.Context, arg UpdateSalePeriodParams) error {
+	_, err := q.db.ExecContext(ctx, updateSalePeriod, arg.AdminName, arg.StartTime, arg.ID)
 	return err
 }
 

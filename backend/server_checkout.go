@@ -171,7 +171,14 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "At least one item is required", http.StatusBadRequest)
 		return
 	}
-	dbProducts, err := s.Queries.ListProducts(ctx, false)
+	period, ok := s.resolveSalePeriod(w, req, "current")
+	if !ok {
+		return
+	}
+	dbProducts, err := s.Queries.ListProducts(ctx, db.ListProductsParams{
+		IncludeDisabled: false,
+		SalePeriod:      period,
+	})
 	if err != nil {
 		slog.Error("error fetching products", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -187,7 +194,10 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 	var couponID *int64
 	var couponStripeID *string
 	if checkoutReq.Coupon != nil {
-		coupon, err := s.Queries.CouponEnabledByCode(ctx, *checkoutReq.Coupon)
+		coupon, err := s.Queries.CouponEnabledByCode(ctx, db.CouponEnabledByCodeParams{
+			CouponCode: *checkoutReq.Coupon,
+			SalePeriod: period,
+		})
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			http.Error(w, "Invalid coupon code", http.StatusBadRequest)
@@ -230,7 +240,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	// Write to database.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		orderID := randomOrderID()
 		order := db.CreateOrderParams{
 			OrderID:      orderID,
@@ -238,6 +248,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			MatricNumber: checkoutReq.MatricNumber,
 			Email:        checkoutReq.Email,
 			CouponID:     nullCouponID,
+			SalePeriod:   period,
 		}
 		tx, err := s.DB.Begin()
 		if err != nil {
@@ -320,13 +331,13 @@ func constructOrder(req CheckoutRequest, products []Product) ([]db.OrderItem, er
 			}
 		}
 		if product == nil {
-			return nil, fmt.Errorf("Invalid product ID %q", v.ID)
+			return nil, fmt.Errorf("invalid product ID %q", v.ID)
 		}
 		if len(product.Variants) != len(v.Variant) {
-			return nil, fmt.Errorf("Variants for product ID %q is invalid", product.ID)
+			return nil, fmt.Errorf("variants for product ID %q is invalid", product.ID)
 		}
 		if v.Amount <= 0 || v.Amount > 100 {
-			return nil, fmt.Errorf("Amount must be between 1-100 (was %d for product ID %q)", v.Amount, v.ID)
+			return nil, fmt.Errorf("amount must be between 1-100 (was %d for product ID %q)", v.Amount, v.ID)
 		}
 		price := product.BasePrice
 		// Check variants.
@@ -342,7 +353,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]db.OrderItem, er
 				}
 			}
 			if chosen == nil {
-				return nil, fmt.Errorf("Variant %q was not chosen for product ID %q", variant.Type, v.ID)
+				return nil, fmt.Errorf("variant %q was not chosen for product ID %q", variant.Type, v.ID)
 			}
 			var additionalPrice *int
 			for _, w := range validOptions {
@@ -352,7 +363,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]db.OrderItem, er
 				}
 			}
 			if additionalPrice == nil {
-				return nil, fmt.Errorf("Variant %q has option %q for product ID %q which is invalid", variant.Type, *chosen, v.ID)
+				return nil, fmt.Errorf("variant %q has option %q for product ID %q which is invalid", variant.Type, *chosen, v.ID)
 			}
 			price += *additionalPrice
 			variantText = append(variantText, *chosen)
@@ -362,7 +373,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]db.OrderItem, er
 		for _, urlCandidate := range product.ImageURLs {
 			mismatch := false
 			match := 0
-			for i := 0; i < len(variantText); i++ {
+			for i := range variantText {
 				switch {
 				case urlCandidate.SelectedOptions[i] == nil:
 					continue

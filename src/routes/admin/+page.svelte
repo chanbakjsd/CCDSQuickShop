@@ -5,12 +5,10 @@
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 	import Header from '$lib/Header.svelte'
 	import Options from '$lib/Options.svelte'
-	import CouponEdit from './CouponEdit.svelte'
 	import ClosuresEdit from './ClosuresEdit.svelte'
-	import MerchEdit from './MerchEdit.svelte'
-	import UsersEdit from './UsersEdit.svelte'
+	import SalePeriodEdit from './SalePeriodEdit.svelte'
 	import OrderCollection from './OrderCollection.svelte'
-	import OrderSummary from './OrderSummary.svelte'
+	import UsersEdit from './UsersEdit.svelte'
 
 	let err: unknown = $state()
 	onMount(() => {
@@ -23,11 +21,9 @@
 
 	let options = [
 		{ text: 'Store Closures' },
-		{ text: 'Merch' },
-		{ text: 'Coupons' },
 		{ text: 'Admin Users' },
-		{ text: 'Order Collection' },
-		{ text: 'Order Summary' }
+		{ text: 'Storefront Management' },
+		{ text: 'Order Collection' }
 	]
 	let selected: string | undefined = $state(undefined)
 
@@ -45,16 +41,12 @@
 		<Options {options} bind:value={selected} />
 		{#if selected === 'Store Closures'}
 			<ClosuresEdit />
-		{:else if selected === 'Merch'}
-			<MerchEdit />
 		{:else if selected === 'Admin Users'}
 			<UsersEdit />
+		{:else if selected === 'Storefront Management'}
+			<SalePeriodEdit {searchOrder} />
 		{:else if selected === 'Order Collection'}
 			<OrderCollection bind:this={orderCollection} />
-		{:else if selected === 'Coupons'}
-			<CouponEdit />
-		{:else if selected === 'Order Summary'}
-			<OrderSummary {searchOrder} />
 		{/if}
 	</ErrorBoundary>
 </div>

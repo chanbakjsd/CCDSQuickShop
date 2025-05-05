@@ -1,11 +1,14 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
-	import type { ShopItem } from '$lib/shop';
-	import TrashIcon from '$lib/TrashIcon.svelte';
-	import ImageUpload from './ImageUpload.svelte';
+	import Button from '$lib/Button.svelte'
+	import type { ShopItem } from '$lib/shop'
+	import TrashIcon from '$lib/TrashIcon.svelte'
+	import ImageUpload from './ImageUpload.svelte'
 
-	export let product: ShopItem;
-	export let updateProduct: () => void;
+	interface Props {
+		product: ShopItem
+		updateProduct: () => void
+	}
+	let { product = $bindable(), updateProduct }: Props = $props()
 
 	const addVariant = () => {
 		product.variants = [
@@ -18,12 +21,12 @@
 					{ text: '', additionalPrice: 0 }
 				]
 			}
-		];
-	};
+		]
+	}
 	const removeVariant = (i: number) => () => {
-		product.variants.splice(i, 1);
-		product.variants = product.variants;
-	};
+		product.variants.splice(i, 1)
+		product.variants = product.variants
+	}
 
 	const addVariantOption = (i: number) => () => {
 		product.variants[i].options = [
@@ -32,12 +35,12 @@
 				text: '',
 				additionalPrice: 0
 			}
-		];
-	};
+		]
+	}
 	const removeVariantOption = (i: number, j: number) => () => {
-		product.variants[i].options.splice(j, 1);
-		product.variants[i].options = product.variants[i].options;
-	};
+		product.variants[i].options.splice(j, 1)
+		product.variants[i].options = product.variants[i].options
+	}
 
 	const addImageURL = () => {
 		product.imageURLs = [
@@ -46,17 +49,19 @@
 				selectedOptions: [],
 				url: ''
 			}
-		];
-	};
+		]
+	}
 	const removeImageURL = (i: number) => () => {
-		product.imageURLs.splice(i, 1);
-		product.imageURLs = product.imageURLs;
-	};
+		product.imageURLs.splice(i, 1)
+		product.imageURLs = product.imageURLs
+	}
 </script>
 
 <div class="config">
 	<span>ID</span>
 	<input bind:value={product.id} placeholder="Product ID (auto-generated)" disabled />
+	<span>Sale Period</span>
+	<input bind:value={product.salePeriod} placeholder="Product ID (auto-generated)" disabled />
 	<span>Name</span>
 	<input bind:value={product.name} placeholder="Product Name" />
 	<span>Enabled</span>
@@ -69,14 +74,14 @@
 	{#each product.variants as variant, i}
 		<div class="flex gap-x-2 self-start">
 			<input bind:value={product.variants[i].type} placeholder="Variant Name" />
-			<button on:click={removeVariant(i)}><TrashIcon classes="size-4" /></button>
+			<button onclick={removeVariant(i)}><TrashIcon classes="size-4" /></button>
 		</div>
 		<div class="variant-config">
 			{#each variant.options as _, j}
 				<input bind:value={product.variants[i].options[j].text} placeholder="Option Name" />
 				<span>Additional Price</span>
 				<input type="number" bind:value={product.variants[i].options[j].additionalPrice} />
-				<button on:click={removeVariantOption(i, j)}><TrashIcon classes="size-4" /></button>
+				<button onclick={removeVariantOption(i, j)}><TrashIcon classes="size-4" /></button>
 			{/each}
 			<Button size="md" onClick={addVariantOption(i)}>Add {variant.type} Option</Button>
 		</div>
@@ -86,7 +91,7 @@
 	{#each product.imageURLs as _, i}
 		<div class="flex items-center justify-between self-start">
 			<span>Variant {i + 1}</span>
-			<button on:click={removeImageURL(i)}><TrashIcon classes="size-4" /></button>
+			<button onclick={removeImageURL(i)}><TrashIcon classes="size-4" /></button>
 		</div>
 		<div class="flex flex-col justify-start gap-1">
 			<div class="flex gap-1">

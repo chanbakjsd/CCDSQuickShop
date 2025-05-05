@@ -6,15 +6,16 @@
 
 	interface Props {
 		searchOrder: (phrase: string) => void
+		salePeriod: string
 	}
-	const { searchOrder }: Props = $props()
+	const { salePeriod, searchOrder }: Props = $props()
 
 	let showCollected = $state(false)
 	let error: unknown = $state()
 	let summary: OrderSummary | undefined = $state(undefined)
 	const refresh = async () => {
 		try {
-			summary = await orderSummary(showCollected)
+			summary = await orderSummary(showCollected, salePeriod)
 		} catch (e) {
 			error = e
 		}
@@ -62,7 +63,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-1">
-		{#if summary}
+		{#if summary && summary.order_id_samples.length > 0 }
 			<h2 class="text-xl">Unfulfilled Order IDs</h2>
 			<div class="flex flex-wrap gap-x-2">
 				{#each summary.order_id_samples as order_id}

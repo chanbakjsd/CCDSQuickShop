@@ -1,24 +1,29 @@
 <script lang="ts">
-	import { EMAIL_SUFFIX, AdminCoupon } from '$lib/cart';
-	import { fetchAdminCoupons, updateCoupon } from '$lib/api';
-	import { onMount } from 'svelte';
-	import Button from '$lib/Button.svelte';
-	import TrashIcon from '$lib/TrashIcon.svelte';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import { EMAIL_SUFFIX, AdminCoupon } from '$lib/cart'
+	import { fetchAdminCoupons, updateCoupon } from '$lib/api'
+	import { onMount } from 'svelte'
+	import Button from '$lib/Button.svelte'
+	import TrashIcon from '$lib/TrashIcon.svelte'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
-	let loading = $state(true);
-	let coupons: AdminCoupon[] = $state([]);
-	let error: unknown = $state();
+	interface Props {
+		salePeriod: string
+	}
+	const { salePeriod }: Props = $props()
+
+	let loading = $state(true)
+	let coupons: AdminCoupon[] = $state([])
+	let error: unknown = $state()
 	onMount(() => {
-		fetchAdminCoupons()
+		fetchAdminCoupons(salePeriod)
 			.then((x) => {
-				loading = false;
-				coupons = x;
+				loading = false
+				coupons = x
 			})
 			.catch((e) => {
-				error = e;
-			});
-	});
+				error = e
+			})
+	})
 
 	$effect(() => {
 		if (!loading && (coupons.length === 0 || coupons[coupons.length - 1].id !== null)) {
@@ -34,56 +39,56 @@
 					type: 'percentage',
 					amount: 0
 				}
-			});
+			})
 		}
-	});
+	})
 
 	const reqDesc = $derived(
 		coupons.map((x) => {
-			if (!x.requirements) return '-';
+			if (!x.requirements) return '-'
 			return x.requirements
 				.map<string>((req) => {
 					switch (req.type) {
 						case 'purchase_count':
-							return `Buy ${req.amount}`;
+							return `Buy ${req.amount}`
 						case 'email':
-							return `Email: ${req.value}`;
+							return `Email: ${req.value}`
 					}
 				})
-				.join(', ');
+				.join(', ')
 		})
-	);
+	)
 	const discountDesc = $derived(
 		coupons.map((x) => {
 			switch (x.discount.type) {
 				case 'percentage':
-					return `${x.discount.amount}%`;
+					return `${x.discount.amount}%`
 			}
 		})
-	);
+	)
 
-	let selected = $state(-1);
+	let selected = $state(-1)
 	const select = (i: number) => () => {
-		selected = i;
-	};
+		selected = i
+	}
 
 	const update = async () => {
 		try {
-			coupons[selected] = await updateCoupon(coupons[selected]);
+			coupons[selected] = await updateCoupon(coupons[selected])
 		} catch (e) {
-			error = e;
+			error = e
 		}
-	};
+	}
 
 	const addRequirement = () => {
 		coupons[selected].requirements.push({
 			type: 'purchase_count',
 			amount: 0
-		});
-	};
+		})
+	}
 	const removeRequirement = (i: number) => () => {
-		coupons[selected].requirements.splice(i, 1);
-	};
+		coupons[selected].requirements.splice(i, 1)
+	}
 </script>
 
 <table class="w-fit border border-black text-center">

@@ -58,15 +58,15 @@
 </script>
 
 <div class={`w-full shadow-md lg:w-1/2 ${bgColor}`}>
-	<button
-		class="flex w-full items-center justify-between p-4 text-xl font-bold"
-		on:click={toggleExpanded}
-	>
-		<div class="flex items-center gap-2">
+	<button class="flex w-full items-center justify-between p-4" on:click={toggleExpanded}>
+		<div class="flex items-center gap-2 text-xl font-bold">
 			<span>Order {order.id}</span>
 			{#if pillColor && !userFacing}<span class={`pill ${pillColor}`}>{orderStatus}</span>{/if}
 		</div>
-		{#if expanded}<IconChevronUp />{:else}<IconChevronDown />{/if}
+		<div class="flex items-center gap-2">
+			<span class="italic text-gray-400">{order.salePeriod}</span>
+			{#if expanded}<IconChevronUp />{:else}<IconChevronDown />{/if}
+		</div>
 	</button>
 	<div class="overflow-hidden bg-white transition-all" style:max-height={maxHeight}>
 		<hr />

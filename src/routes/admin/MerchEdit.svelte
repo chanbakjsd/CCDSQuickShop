@@ -1,50 +1,55 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount } from 'svelte'
 
-	import { fetchProducts, updateProduct } from '$lib/api';
-	import { emptyShopItem, type ShopItem } from '$lib/shop';
-	import MerchList from '$lib/MerchList.svelte';
-	import ProductEdit from './ProductEdit.svelte';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import { fetchProducts, updateProduct } from '$lib/api'
+	import { emptyShopItem, type ShopItem } from '$lib/shop'
+	import MerchList from '$lib/MerchList.svelte'
+	import ProductEdit from './ProductEdit.svelte'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
-	let loading = $state(true);
-	let items: ShopItem[] = $state([]);
-	let fetchError: unknown = $state();
+	interface Props {
+		salePeriod: string
+	}
+	const { salePeriod }: Props = $props()
+
+	let loading = $state(true)
+	let items: ShopItem[] = $state([])
+	let fetchError: unknown = $state()
 	onMount(() => {
-		fetchProducts(true)
+		fetchProducts({ includeDisabled: true, salePeriod })
 			.then((x) => {
-				loading = false;
-				items = x;
+				loading = false
+				items = x
 			})
 			.catch((e) => {
-				fetchError = e;
-			});
-	});
+				fetchError = e
+			})
+	})
 
 	$effect(() => {
 		if (!loading && (items.length === 0 || items[items.length - 1].id !== '')) {
-			items.push(emptyShopItem('Add New Product'));
+			items.push(emptyShopItem('Add New Product', salePeriod))
 		}
-	});
+	})
 
-	const variants = $derived(Array(items.length).fill({}));
-	let selectedItemIdx = $state(-1);
-	let selectedItem: ShopItem | undefined = $state(undefined);
+	const variants = $derived(Array(items.length).fill({}))
+	let selectedItemIdx = $state(-1)
+	let selectedItem: ShopItem | undefined = $state(undefined)
 
 	$effect(() => {
-		selectedItem = selectedItemIdx >= 0 ? items[selectedItemIdx] : undefined;
-	});
+		selectedItem = selectedItemIdx >= 0 ? items[selectedItemIdx] : undefined
+	})
 
-	let updateError: unknown = $state();
+	let updateError: unknown = $state()
 	const update = async () => {
-		if (!selectedItem) return;
+		if (!selectedItem) return
 		try {
-			const updatedItem = await updateProduct(selectedItem);
-			items[selectedItemIdx] = updatedItem;
+			const updatedItem = await updateProduct(selectedItem)
+			items[selectedItemIdx] = updatedItem
 		} catch (e) {
-			updateError = e;
+			updateError = e
 		}
-	};
+	}
 </script>
 
 <div class="flex flex-col gap-4 p-4">

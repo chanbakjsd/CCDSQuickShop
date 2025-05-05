@@ -1,20 +1,24 @@
 <script lang="ts">
-	import MerchCard from './MerchCard.svelte';
-	import { resolveImageURL, type ShopItem } from './shop';
+	import MerchCard from './MerchCard.svelte'
+	import { resolveImageURL, type ShopItem } from './shop'
 
-	export let items: ShopItem[];
-	export let variants: Record<string, string>[];
-	export let value = -1;
+	interface Props {
+		items: ShopItem[]
+		variants: Record<string, string>[]
+		value: number
+	}
+
+	let { items, variants, value = $bindable(-1) }: Props = $props()
 
 	const select = (i: number) => () => {
 		if (value === i) {
-			value = -1;
-			return;
+			value = -1
+			return
 		}
-		value = i;
-	};
+		value = i
+	}
 
-	$: previewImages = items.map((x, i) => resolveImageURL(x, variants[i]));
+	const previewImages = $derived(items.map((x, i) => resolveImageURL(x, variants[i])))
 </script>
 
 <div class="flex flex-wrap gap-4">

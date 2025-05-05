@@ -23,6 +23,7 @@ type Coupon struct {
 	Discount     json.RawMessage   `json:"discount"`
 
 	// Admin fields.
+	SalePeriod *int64  `json:"sale_period,omitempty"`
 	ID         *int64  `json:"id,omitempty"`
 	StripeID   *string `json:"stripe_id,omitempty"`
 	Enabled    *bool   `json:"enabled,omitempty"`
@@ -38,12 +39,16 @@ func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
 	if includeDisabled && !s.authCheck(w, req) {
 		return
 	}
+	salePeriod, ok := s.resolveSalePeriod(w, req, req.PathValue("sale_id"))
+	if !ok {
+		return
+	}
 	var dbCoupons []db.Coupon
 	var err error
 	if includeDisabled {
-		dbCoupons, err = s.Queries.ListCoupons(req.Context())
+		dbCoupons, err = s.Queries.ListCoupons(req.Context(), salePeriod)
 	} else {
-		dbCoupons, err = s.Queries.ListPublicCoupons(req.Context())
+		dbCoupons, err = s.Queries.ListPublicCoupons(req.Context(), salePeriod)
 	}
 	switch {
 	case errors.Is(err, context.Canceled):
@@ -70,9 +75,16 @@ func (s *Server) CouponLookup(w http.ResponseWriter, req *http.Request) {
 	if !s.closureCheck(w, req) {
 		return
 	}
+	salePeriod, ok := s.resolveSalePeriod(w, req, req.PathValue("sale_id"))
+	if !ok {
+		return
+	}
 	couponCode := req.PathValue("id")
 	ctx := req.Context()
-	dbCoupon, err := s.Queries.CouponEnabledByCode(ctx, couponCode)
+	dbCoupon, err := s.Queries.CouponEnabledByCode(ctx, db.CouponEnabledByCodeParams{
+		CouponCode: couponCode,
+		SalePeriod: salePeriod,
+	})
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "Invalid coupon ID", http.StatusNotFound)
@@ -161,6 +173,10 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 	}
 	couponEnabled := coupon.Enabled != nil && *coupon.Enabled
 	couponPublic := coupon.Public != nil && *coupon.Public
+	salePeriod, ok := s.resolveSalePeriod(w, req, req.PathValue("sale_id"))
+	if !ok {
+		return
+	}
 	var stripeID string
 	if couponEnabled {
 		if coupon.StripeID != nil {
@@ -193,6 +209,7 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 			DiscountPercentage:  int64(discountPercentage),
 			Enabled:             couponEnabled,
 			Public:              couponPublic,
+			SalePeriod:          salePeriod,
 		})
 		coupon.ID = &newID
 	default:
@@ -242,6 +259,7 @@ func (s *Server) dbCouponToCoupon(dbCoupon db.Coupon, includeSensitiveFields boo
 		coupon.StripeID = &dbCoupon.StripeID
 		coupon.Enabled = &dbCoupon.Enabled
 		coupon.Public = &dbCoupon.Public
+		coupon.SalePeriod = &dbCoupon.SalePeriod
 		if s.Stripe == nil || dbCoupon.StripeID == "" {
 			return coupon
 		}

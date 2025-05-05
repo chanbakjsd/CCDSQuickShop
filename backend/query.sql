@@ -1,3 +1,40 @@
+-- name: CreateSalePeriod :one
+INSERT INTO sale_periods (
+	admin_name, start_time, delete_time
+) VALUES (
+	?, ?, NULL
+) RETURNING
+	id;
+
+-- name: ListSalePeriods :many
+SELECT
+	*
+FROM
+	sale_periods;
+
+-- name: UpdateSalePeriod :exec
+UPDATE
+	sale_periods
+SET
+	admin_name = ?,
+	start_time = ?
+WHERE
+	id = ?
+	AND delete_time IS NULL;
+
+-- name: CurrentSalePeriod :one
+SELECT
+	id
+FROM
+	sale_periods
+WHERE
+	start_time <= date('now')
+	AND delete_time IS NULL
+ORDER BY
+	start_time DESC
+LIMIT
+	1;
+
 -- name: CreateAdminUser :exec
 INSERT INTO admin_users (
 	email
@@ -33,9 +70,9 @@ WHERE
 
 -- name: CreateProduct :one
 INSERT INTO products (
-	name, base_price, default_image_url, variants, variant_image_urls, enabled
+	name, base_price, default_image_url, variants, variant_image_urls, enabled, sale_period
 ) VALUES (
-	?, ?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 ) RETURNING product_id;
 
 -- name: ListProducts :many
@@ -44,8 +81,11 @@ SELECT
 FROM
 	products
 WHERE
-	enabled = TRUE
-	OR CAST(@include_disabled AS BOOLEAN);
+	(
+		enabled = TRUE
+		OR CAST(@include_disabled AS BOOLEAN)
+	)
+	AND sale_period = ?;
 
 -- name: UpdateProduct :exec
 UPDATE
@@ -70,16 +110,18 @@ WHERE
 
 -- name: CreateCoupon :one
 INSERT INTO coupons (
-	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public
+	stripe_id, coupon_code, min_purchase_quantity, email_match, discount_percentage, enabled, public, sale_period
 ) VALUES (
-	?, ?, ?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?, ?
 ) RETURNING coupon_id;
 
 -- name: ListCoupons :many
 SELECT
 	*
 FROM
-	coupons;
+	coupons
+WHERE
+	sale_period = ?;
 
 -- name: ListPublicCoupons :many
 SELECT
@@ -88,7 +130,8 @@ FROM
 	coupons
 WHERE
 	enabled = TRUE
-	AND public = TRUE;
+	AND public = TRUE
+	AND sale_period = ?;
 
 -- name: CouponByID :one
 SELECT
@@ -105,7 +148,8 @@ FROM
 	coupons
 WHERE
 	coupon_code = ?
-	AND enabled = TRUE;
+	AND enabled = TRUE
+	AND sale_period = ?;
 
 -- name: UpdateCoupon :exec
 UPDATE
@@ -131,9 +175,9 @@ WHERE
 
 -- name: CreateOrder :exec
 INSERT INTO orders (
-	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id
+	order_id, name, matric_number, email, payment_reference, payment_time, collection_time, cancelled, coupon_id, sale_period
 ) VALUES (
-	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?
+	?, ?, ?, ?, NULL, NULL, NULL, FALSE, ?, ?
 );
 
 -- name: AssociateOrder :exec
@@ -146,9 +190,11 @@ WHERE
 
 -- name: LookupOrder :many
 SELECT
-	*
+	orders.*,
+	sale_periods.admin_name
 FROM
 	orders
+	JOIN sale_periods ON orders.sale_period = sale_periods.id
 WHERE
 	(
 		order_id = @id COLLATE NOCASE
@@ -166,9 +212,11 @@ WHERE
 
 -- name: LookupOrderFromItem :many
 SELECT
-	orders.*
+	orders.*,
+	sale_periods.admin_name
 FROM
 	orders
+	JOIN sale_periods ON orders.sale_period = sale_periods.id
 WHERE
 	EXISTS(
 		SELECT
@@ -197,6 +245,7 @@ WHERE
 	)
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 GROUP BY
 	order_items.product_id, order_items.product_name, order_items.variant;
 
@@ -209,6 +258,7 @@ FROM
 WHERE
 	orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 GROUP BY
 	orders.collection_time IS NULL;
 
@@ -221,6 +271,7 @@ WHERE
 	orders.collection_time IS NULL
 	AND orders.payment_time IS NOT NULL
 	AND orders.cancelled = FALSE
+	AND orders.sale_period = ?
 LIMIT
 	@max_count;
 

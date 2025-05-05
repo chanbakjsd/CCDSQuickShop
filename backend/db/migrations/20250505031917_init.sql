@@ -60,9 +60,9 @@ CREATE TABLE IF NOT EXISTS store_closures (
 );
 
 -- migrate:down
-DROP TABLE admin_users;
-DROP TABLE products;
-DROP TABLE coupons;
-DROP TABLE orders;
-DROP TABLE order_items;
 DROP TABLE store_closures;
+DROP TABLE order_items;
+DROP TABLE orders;
+DROP TABLE coupons;
+DROP TABLE products;
+DROP TABLE admin_users;

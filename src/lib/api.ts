@@ -80,9 +80,13 @@ export const checkout = async (
 const ProductsResponse = z.object({
 	products: ShopItem.array()
 })
-export const fetchProducts = async (includeDisabled?: boolean): Promise<ShopItem[]> => {
-	let path = `${API_URL}/products`
-	if (includeDisabled) {
+export const fetchProducts = async (params?: {
+	includeDisabled?: boolean
+	salePeriod?: string
+}): Promise<ShopItem[]> => {
+	const salePeriod = params?.salePeriod || 'current'
+	let path = `${API_URL}/sales/${salePeriod}/products`
+	if (params?.includeDisabled) {
 		path += '?include_disabled=1'
 	}
 	const resp = await handleFetch(ProductsResponse, path)
@@ -96,22 +100,25 @@ export const updateProduct = async (product: ShopItem): Promise<ShopItem> => {
 	})
 }
 
-export const fetchCoupon = (couponCode: string): Promise<Coupon> =>
-	handleFetch(Coupon, `${API_URL}/coupons/${encodeURI(couponCode)}`)
+export const fetchCoupon = (couponCode: string, period: string = 'current'): Promise<Coupon> =>
+	handleFetch(Coupon, `${API_URL}/sales/${period}/coupons/${encodeURI(couponCode)}`)
 
 const CouponsResponse = z.object({
 	coupons: Coupon.array()
 })
-export const fetchCoupons = async (): Promise<Coupon[]> => {
-	const resp = await handleFetch(CouponsResponse, `${API_URL}/coupons`)
+export const fetchCoupons = async (period: string = 'current'): Promise<Coupon[]> => {
+	const resp = await handleFetch(CouponsResponse, `${API_URL}/sales/${period}/coupons`)
 	return resp.coupons
 }
 
 const AdminCouponsResponse = z.object({
 	coupons: AdminCoupon.array()
 })
-export const fetchAdminCoupons = async (): Promise<AdminCoupon[]> => {
-	const resp = await handleFetch(AdminCouponsResponse, `${API_URL}/coupons?include_disabled=1`)
+export const fetchAdminCoupons = async (period: string = 'current'): Promise<AdminCoupon[]> => {
+	const resp = await handleFetch(
+		AdminCouponsResponse,
+		`${API_URL}/sales/${period}/coupons?include_disabled=1`
+	)
 	return resp.coupons
 }
 
@@ -158,7 +165,8 @@ const Order = z.object({
 	collectionTime: z.coerce.date().nullable(),
 	cancelled: z.boolean(),
 	coupon: Coupon.nullable(),
-	items: OrderItem.array()
+	items: OrderItem.array(),
+	salePeriod: z.string()
 })
 const OrdersResponse = z.object({
 	orders: Order.array()
@@ -236,8 +244,31 @@ const OrderSummary = z.object({
 	fulfilled_order_count: z.number()
 })
 export type OrderSummary = z.infer<typeof OrderSummary>
-export const orderSummary = (showFulfilled: boolean): Promise<OrderSummary> => {
-	let url = `${API_URL}/order_summary`
+export const orderSummary = (
+	showFulfilled: boolean,
+	salePeriod: string = 'current'
+): Promise<OrderSummary> => {
+	let url = `${API_URL}/sales/${salePeriod}/order_summary`
 	if (showFulfilled) url += '?show_collected=1'
 	return handleFetch(OrderSummary, url)
 }
+
+const SalePeriod = z.object({
+	id: z.string(),
+	name: z.string(),
+	start_time: z.coerce.date()
+})
+const SalePeriodResponse = z.object({
+	periods: SalePeriod.array()
+})
+export type SalePeriod = z.infer<typeof SalePeriod>
+export const salePeriods = async (): Promise<SalePeriod[]> => {
+	const resp = await handleFetch(SalePeriodResponse, `${API_URL}/sales`)
+	return resp.periods
+}
+
+export const updateSalePeriod = async (period: SalePeriod): Promise<SalePeriod> =>
+	handleFetch(SalePeriod, `${API_URL}/sales`, {
+		method: 'POST',
+		body: JSON.stringify(period)
+	})

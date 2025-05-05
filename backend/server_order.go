@@ -23,6 +23,7 @@ type Order struct {
 	Email            string      `json:"email"`
 	MatricNumber     string      `json:"matricNumber"`
 	PaymentReference string      `json:"paymentRef"`
+	SalePeriod       string      `json:"salePeriod"`
 	PaymentTime      *time.Time  `json:"paymentTime"`
 	CollectionTime   *time.Time  `json:"collectionTime"`
 	Cancelled        bool        `json:"cancelled"`
@@ -57,7 +58,9 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 			ProductName: split[0],
 			Variant:     split[1],
 		})
-		dbOrders = append(dbOrders, orders...)
+		for _, order := range orders {
+			dbOrders = append(dbOrders, db.LookupOrderRow(order))
+		}
 		err = dbErr
 	}
 	switch {
@@ -107,6 +110,7 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 			Email:            strings.Join(emailSplit, "@"),
 			MatricNumber:     censorFront(dbOrder.MatricNumber, 4, 10, ' '),
 			PaymentReference: censorFront(dbOrder.PaymentReference.String, 8, 10, ' '),
+			SalePeriod:       dbOrder.AdminName,
 			Cancelled:        dbOrder.Cancelled,
 			Coupon:           coupon,
 			Items:            orderItems,
@@ -198,7 +202,14 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := req.Context()
 	showCollected := req.URL.Query().Get("show_collected") != ""
-	summary, err := s.Queries.OrderSummary(ctx, !showCollected)
+	salePeriod, ok := s.resolveSalePeriod(w, req, req.PathValue("sale_id"))
+	if !ok {
+		return
+	}
+	summary, err := s.Queries.OrderSummary(ctx, db.OrderSummaryParams{
+		SalePeriod:        salePeriod,
+		ShowOnlyCollected: !showCollected,
+	})
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		summary = []db.OrderSummaryRow{}
@@ -207,14 +218,19 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	orderIDs, err := s.Queries.UnfulfilledOrderIDs(ctx, 10)
+	orderIDs, err := s.Queries.UnfulfilledOrderIDs(ctx, db.UnfulfilledOrderIDsParams{
+		MaxCount:   10,
+		SalePeriod: salePeriod,
+	})
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		orderIDs = []string{}
 	case err != nil:
 		slog.Error("error fetching unfulfilled order IDs", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
+	}
+	if orderIDs == nil {
+		orderIDs = []string{}
 	}
 	entries := make([]OrderSummaryEntry, 0, len(summary))
 	for _, v := range summary {
@@ -226,7 +242,7 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 	}
 	unfulfilledCount := 0
 	fulfilledCount := 0
-	orderCount, err := s.Queries.OrderNumberStats(ctx)
+	orderCount, err := s.Queries.OrderNumberStats(ctx, salePeriod)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 	case err != nil:

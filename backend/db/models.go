@@ -23,6 +23,7 @@ type Coupon struct {
 	Enabled             bool
 	Public              bool
 	RedemptionLimit     sql.NullInt64
+	SalePeriod          int64
 }
 
 type Order struct {
@@ -36,6 +37,7 @@ type Order struct {
 	CollectionTime   sql.NullTime
 	Cancelled        bool
 	CouponID         sql.NullInt64
+	SalePeriod       int64
 }
 
 type OrderItem struct {
@@ -56,6 +58,14 @@ type Product struct {
 	Variants         string
 	VariantImageUrls string
 	Enabled          bool
+	SalePeriod       int64
+}
+
+type SalePeriod struct {
+	ID         int64
+	AdminName  string
+	StartTime  time.Time
+	DeleteTime sql.NullTime
 }
 
 type StoreClosure struct {
