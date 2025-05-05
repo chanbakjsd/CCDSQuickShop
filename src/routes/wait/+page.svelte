@@ -41,7 +41,7 @@
 	})
 
 	let orderID = $state('')
-	let orderIDValid = $derived(orderID.match(/^[A-Z]{2}\d{4}$/))
+	let orderIDValid = $derived(orderID.match(/^[A-Z]{2}\d{4}|[UG]\d{7}[A-Z]$/))
 	const visitOrder = () => {
 		if (!orderIDValid) return
 		window.location.assign(`/orders/${orderID}`)
@@ -60,17 +60,15 @@
 	{/if}
 	{#if data.allow_order}
 		<hr class="mb-4 mt-2 w-48 border-brand/50" />
-		<p class="text-center text-lg">Have an order ID?</p>
-		<div class="flex items-center gap-2">
-			<form onsubmit={visitOrder}>
-				<input
-					placeholder="AB1234"
-					class="w-16 border-b border-brand text-center"
-					bind:value={orderID}
-					maxlength="6"
-				/>
-			</form>
-			<Button size="md" onClick={visitOrder} disabled={!orderIDValid}>Go</Button>
-		</div>
+		<p class="text-center text-lg">Have an existing order?</p>
+		<form onsubmit={visitOrder}>
+			<input
+				placeholder="AB1234 / U1234567A"
+				class="w-40 border-b border-brand text-center"
+				bind:value={orderID}
+				maxlength="9"
+			/>
+		</form>
+		<Button size="md" onClick={visitOrder} disabled={!orderIDValid}>Go</Button>
 	{/if}
 </div>
