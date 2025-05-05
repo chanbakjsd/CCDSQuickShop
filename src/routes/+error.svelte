@@ -4,7 +4,7 @@
 
 <div class="flex h-screen w-screen flex-col items-center justify-center gap-2">
 	<img
-		src="https://ntuscds.com/scse-logo/scds-logo.png"
+		src="https://ntuscds.com/scds-logo-blue.png"
 		class="mb-2 size-32"
 		alt="Logo for SCDS Club"
 	/>
