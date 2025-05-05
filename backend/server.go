@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"embed"
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
@@ -16,27 +17,29 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 
+	"github.com/amacneil/dbmate/v2/pkg/dbmate"
+	_ "github.com/amacneil/dbmate/v2/pkg/driver/sqlite"
+	"github.com/chanbakjsd/CCDSQuickShop/backend/db"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stripe/stripe-go/v81/client"
-
-	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
 )
 
-//go:embed schema.sql
-var schemaSQL string
+//go:embed db/migrations/*.sql
+var migrationFS embed.FS
 
 type Server struct {
 	Config  *ServerConfig
 	DB      *sql.DB
-	Queries *shop.Queries
+	Queries *db.Queries
 	Stripe  *client.API
 }
 
@@ -46,12 +49,19 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 	} else {
 		slog.Warn("client id or secret missing, admin authentication will not work")
 	}
-	db, err := sql.Open("sqlite3", cfg.Sqlite3ConnStr)
+	connURL, err := url.Parse(cfg.Sqlite3ConnStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse connection URL: %w", err)
+	}
+	connURL.Scheme = "sqlite3"
+	dbmateDB := dbmate.New(connURL)
+	dbmateDB.FS = migrationFS
+	if err := dbmateDB.CreateAndMigrate(); err != nil {
+		return nil, fmt.Errorf("failed to create and migrate database: %w", err)
+	}
+	sqlDB, err := sql.Open("sqlite3", cfg.Sqlite3ConnStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-	if _, err := db.Exec(schemaSQL); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 	var stripe *client.API
 	if cfg.StripeSecretKey == "" {
@@ -62,8 +72,8 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 	}
 	return &Server{
 		Config:  cfg,
-		DB:      db,
-		Queries: shop.New(db),
+		DB:      sqlDB,
+		Queries: db.New(sqlDB),
 		Stripe:  stripe,
 	}, nil
 }
@@ -203,7 +213,7 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 	case "":
 		// Create new product.
 		var newID int64
-		newID, sqlErr = s.Queries.CreateProduct(ctx, shop.CreateProductParams{
+		newID, sqlErr = s.Queries.CreateProduct(ctx, db.CreateProductParams{
 			Name:             product.Name,
 			BasePrice:        int64(product.BasePrice),
 			DefaultImageUrl:  product.DefaultImageURL,
@@ -219,7 +229,7 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Invalid product ID", http.StatusBadRequest)
 			return
 		}
-		sqlErr = s.Queries.UpdateProduct(ctx, shop.UpdateProductParams{
+		sqlErr = s.Queries.UpdateProduct(ctx, db.UpdateProductParams{
 			ProductID:        int64(id),
 			Name:             product.Name,
 			BasePrice:        int64(product.BasePrice),
@@ -501,7 +511,7 @@ func (cfg *ServerConfig) authenticationOK() bool {
 	return cfg.GoogleClientID != "" || cfg.GoogleClientSecret != ""
 }
 
-func dbProductsToProducts(dbProducts []shop.Product, includeDisabled bool) ([]Product, error) {
+func dbProductsToProducts(dbProducts []db.Product, includeDisabled bool) ([]Product, error) {
 	products := make([]Product, 0, len(dbProducts))
 	for _, p := range dbProducts {
 		var variants []ProductVariant

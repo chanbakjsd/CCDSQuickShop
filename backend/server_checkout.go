@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
+	"github.com/chanbakjsd/CCDSQuickShop/backend/db"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/webhook"
 )
@@ -127,7 +127,7 @@ func (s *Server) checkAndFulfill(ctx context.Context, sessionID string) (string,
 			couponCode = session.TotalDetails.Breakdown.Discounts[0].Discount.Coupon.ID
 		}
 	}
-	orderID, err := s.Queries.CompleteCheckout(ctx, shop.CompleteCheckoutParams{
+	orderID, err := s.Queries.CompleteCheckout(ctx, db.CompleteCheckoutParams{
 		PaymentReference: sql.NullString{
 			String: sessionID,
 			Valid:  true,
@@ -232,7 +232,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 	// Write to database.
 	for i := 0; i < 5; i++ {
 		orderID := randomOrderID()
-		order := shop.CreateOrderParams{
+		order := db.CreateOrderParams{
 			OrderID:      orderID,
 			Name:         checkoutReq.Name,
 			MatricNumber: checkoutReq.MatricNumber,
@@ -252,7 +252,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		for _, item := range items {
-			if err := queries.CreateOrderItem(ctx, shop.CreateOrderItemParams{
+			if err := queries.CreateOrderItem(ctx, db.CreateOrderItemParams{
 				OrderID:     orderID,
 				ProductID:   item.ProductID,
 				ProductName: item.ProductName,
@@ -286,7 +286,7 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 			redirectURL = checkoutSession.URL
 			paymentRef = checkoutSession.ID
 		}
-		if err := s.Queries.AssociateOrder(ctx, shop.AssociateOrderParams{
+		if err := s.Queries.AssociateOrder(ctx, db.AssociateOrderParams{
 			PaymentReference: sql.NullString{
 				String: paymentRef,
 				Valid:  true,
@@ -309,8 +309,8 @@ func (s *Server) Checkout(w http.ResponseWriter, req *http.Request) {
 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }
 
-func constructOrder(req CheckoutRequest, products []Product) ([]shop.OrderItem, error) {
-	orderItems := make([]shop.OrderItem, 0, len(req.Items))
+func constructOrder(req CheckoutRequest, products []Product) ([]db.OrderItem, error) {
+	orderItems := make([]db.OrderItem, 0, len(req.Items))
 	for _, v := range req.Items {
 		var product *Product
 		for _, p := range products {
@@ -382,7 +382,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]shop.OrderItem, 
 			bestMatch = match
 			imageURL = urlCandidate.URL
 		}
-		orderItems = append(orderItems, shop.OrderItem{
+		orderItems = append(orderItems, db.OrderItem{
 			ProductID:   product.ID,
 			ProductName: product.Name,
 			UnitPrice:   int64(price),
@@ -394,7 +394,7 @@ func constructOrder(req CheckoutRequest, products []Product) ([]shop.OrderItem, 
 	return orderItems, nil
 }
 
-func (s *Server) createStripeCheckoutSession(orderID string, email string, items []shop.OrderItem, couponID *string) (*stripe.CheckoutSession, error) {
+func (s *Server) createStripeCheckoutSession(orderID string, email string, items []db.OrderItem, couponID *string) (*stripe.CheckoutSession, error) {
 	checkoutLineItems := make([]*stripe.CheckoutSessionLineItemParams, 0, len(items))
 	for _, v := range items {
 		var imageData []*string

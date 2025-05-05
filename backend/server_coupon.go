@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
+	"github.com/chanbakjsd/CCDSQuickShop/backend/db"
 	"github.com/stripe/stripe-go/v81"
 )
 
@@ -38,7 +38,7 @@ func (s *Server) Coupons(w http.ResponseWriter, req *http.Request) {
 	if includeDisabled && !s.authCheck(w, req) {
 		return
 	}
-	var dbCoupons []shop.Coupon
+	var dbCoupons []db.Coupon
 	var err error
 	if includeDisabled {
 		dbCoupons, err = s.Queries.ListCoupons(req.Context())
@@ -185,7 +185,7 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 	switch coupon.ID {
 	case nil:
 		var newID int64
-		newID, sqlErr = s.Queries.CreateCoupon(ctx, shop.CreateCouponParams{
+		newID, sqlErr = s.Queries.CreateCoupon(ctx, db.CreateCouponParams{
 			StripeID:            stripeID,
 			CouponCode:          coupon.CouponCode,
 			MinPurchaseQuantity: minPurchaseQuantity,
@@ -196,7 +196,7 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 		})
 		coupon.ID = &newID
 	default:
-		sqlErr = s.Queries.UpdateCoupon(ctx, shop.UpdateCouponParams{
+		sqlErr = s.Queries.UpdateCoupon(ctx, db.UpdateCouponParams{
 			CouponID:            *coupon.ID,
 			StripeID:            stripeID,
 			CouponCode:          coupon.CouponCode,
@@ -224,7 +224,7 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 
 var descCache = make(map[int64]*string)
 
-func (s *Server) dbCouponToCoupon(dbCoupon shop.Coupon, includeSensitiveFields bool) Coupon {
+func (s *Server) dbCouponToCoupon(dbCoupon db.Coupon, includeSensitiveFields bool) Coupon {
 	requirements := make([]json.RawMessage, 0)
 	if dbCoupon.MinPurchaseQuantity.Valid {
 		requirements = append(requirements, json.RawMessage(fmt.Sprintf(`{"type":"purchase_count","amount":%d}`, dbCoupon.MinPurchaseQuantity.Int64)))

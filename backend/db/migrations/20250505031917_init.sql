@@ -1,3 +1,4 @@
+-- migrate:up
 CREATE TABLE IF NOT EXISTS admin_users (
 	email TEXT UNIQUE NOT NULL
 );
@@ -57,3 +58,11 @@ CREATE TABLE IF NOT EXISTS store_closures (
 	allow_order_check BOOLEAN NOT NULL,
 	deleted           BOOLEAN NOT NULL
 );
+
+-- migrate:down
+DROP TABLE admin_users;
+DROP TABLE products;
+DROP TABLE coupons;
+DROP TABLE orders;
+DROP TABLE order_items;
+DROP TABLE store_closures;

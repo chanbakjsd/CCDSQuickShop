@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
+	"github.com/chanbakjsd/CCDSQuickShop/backend/db"
 )
 
 type StoreClosureError struct {
@@ -104,7 +104,7 @@ func (s *Server) SaveStoreClosure(w http.ResponseWriter, req *http.Request) {
 	case "":
 		// Create new store closure.
 		var newID int64
-		newID, sqlErr = s.Queries.CreateStoreClosure(ctx, shop.CreateStoreClosureParams{
+		newID, sqlErr = s.Queries.CreateStoreClosure(ctx, db.CreateStoreClosureParams{
 			StartTime:       closure.StartTime,
 			EndTime:         closure.EndTime,
 			UserMessage:     closure.Message,
@@ -118,7 +118,7 @@ func (s *Server) SaveStoreClosure(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Invalid closure ID", http.StatusBadRequest)
 			return
 		}
-		sqlErr = s.Queries.UpdateStoreClosure(ctx, shop.UpdateStoreClosureParams{
+		sqlErr = s.Queries.UpdateStoreClosure(ctx, db.UpdateStoreClosureParams{
 			ID:              int64(id),
 			StartTime:       closure.StartTime,
 			EndTime:         closure.EndTime,

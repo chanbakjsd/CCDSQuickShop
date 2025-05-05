@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chanbakjsd/CCDSQuickShop/backend/shop"
+	"github.com/chanbakjsd/CCDSQuickShop/backend/db"
 	"github.com/stripe/stripe-go/v81"
 )
 
@@ -47,13 +47,13 @@ func (s *Server) OrderLookup(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := req.Context()
 	orderID := req.PathValue("id")
-	dbOrders, err := s.Queries.LookupOrder(ctx, shop.LookupOrderParams{
+	dbOrders, err := s.Queries.LookupOrder(ctx, db.LookupOrderParams{
 		ID:               orderID,
 		IncludeCancelled: includeCancelled,
 	})
 	if (err == nil || errors.Is(err, sql.ErrNoRows)) && allowFromItem && strings.Contains(orderID, ", ") {
 		split := strings.SplitN(orderID, ", ", 2)
-		orders, dbErr := s.Queries.LookupOrderFromItem(ctx, shop.LookupOrderFromItemParams{
+		orders, dbErr := s.Queries.LookupOrderFromItem(ctx, db.LookupOrderFromItemParams{
 			ProductName: split[0],
 			Variant:     split[1],
 		})
@@ -133,7 +133,7 @@ func (s *Server) OrderCollect(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := req.Context()
 	orderID := req.PathValue("id")
-	err := s.Queries.UpdateCollectionTime(ctx, shop.UpdateCollectionTimeParams{
+	err := s.Queries.UpdateCollectionTime(ctx, db.UpdateCollectionTimeParams{
 		CollectionTime: sql.NullTime{
 			Time:  time.Now(),
 			Valid: true,
@@ -158,7 +158,7 @@ func (s *Server) OrderCancel(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := req.Context()
 	orderID := req.PathValue("id")
-	paymentRef, err := s.Queries.UpdateCancelled(ctx, shop.UpdateCancelledParams{
+	paymentRef, err := s.Queries.UpdateCancelled(ctx, db.UpdateCancelledParams{
 		Cancelled: true,
 		OrderID:   orderID,
 	})
@@ -201,7 +201,7 @@ func (s *Server) OrderSummary(w http.ResponseWriter, req *http.Request) {
 	summary, err := s.Queries.OrderSummary(ctx, !showCollected)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		summary = []shop.OrderSummaryRow{}
+		summary = []db.OrderSummaryRow{}
 	case err != nil:
 		slog.Error("error fetching order summary", "err", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
