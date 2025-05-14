@@ -1,27 +1,28 @@
 import { z } from 'zod'
 
+export type ShopItemOption = z.infer<typeof ShopItemVariant>['options'][number]
+const ShopItemVariant = z.object({
+	type: z.string(),
+	options: z
+		.object({
+			text: z.string(),
+			additionalPrice: z.number().optional()
+		})
+		.array()
+})
+
+const ShopItemImage = z.object({
+	selectedOptions: z.string().nullable().array(),
+	url: z.string()
+})
+
 export const ShopItem = z.object({
 	id: z.string(),
 	name: z.string(),
 	basePrice: z.number(),
-	variants: z
-		.object({
-			type: z.string(),
-			options: z
-				.object({
-					text: z.string(),
-					additionalPrice: z.number().optional()
-				})
-				.array()
-		})
-		.array(),
+	variants: ShopItemVariant.array(),
+	imageURLs: ShopItemImage.array(),
 	defaultImageURL: z.string(),
-	imageURLs: z
-		.object({
-			selectedOptions: z.string().nullable().array(),
-			url: z.string()
-		})
-		.array(),
 	enabled: z.boolean().optional(),
 	salePeriod: z.number()
 })
@@ -39,7 +40,7 @@ export const emptyShopItem = (name: string, salePeriod: string): ShopItem => ({
 	salePeriod: +salePeriod
 })
 
-export const toArrayVariant = (item: ShopItem, variants: Record<string, string>) => {
+export const toArrayVariant = (item: ShopItem, variants: Record<string, string | undefined>) => {
 	const arrVarriants: (string | undefined)[] = Array(item.variants.length).fill(undefined)
 	for (let i = 0; i < item.variants.length; i++) {
 		const variant = item.variants[i]
@@ -50,7 +51,7 @@ export const toArrayVariant = (item: ShopItem, variants: Record<string, string>)
 	return arrVarriants
 }
 
-export const resolveImageURL = (item: ShopItem, variants: Record<string, string>) => {
+export const resolveImageURL = (item: ShopItem, variants: Record<string, string | undefined>) => {
 	const arrVariants = toArrayVariant(item, variants)
 	// Find the first best match (undefined in candidates means don't care).
 	let bestMatch = 0
@@ -69,7 +70,7 @@ export const resolveImageURL = (item: ShopItem, variants: Record<string, string>
 	return result
 }
 
-export const tentativePrice = (item: ShopItem, variants: Record<string, string>) => {
+export const tentativePrice = (item: ShopItem, variants: Record<string, string | undefined>) => {
 	const arrVariants = toArrayVariant(item, variants)
 	// Add all the existing addon prices to the base price.
 	let price = item.basePrice

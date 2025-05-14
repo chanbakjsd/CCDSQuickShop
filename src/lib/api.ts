@@ -1,8 +1,15 @@
 import { z, type ZodType } from 'zod'
 import { AdminCoupon, Coupon, OrderItem, type CartItem } from './cart'
 import { ShopItem } from './shop'
+import { browser } from '$app/environment'
 
 const API_URL = `${import.meta.env.VITE_URL}/api/v0`
+const APIStoreClosureError = z.object({
+	type: z.literal('store_closure'),
+	end_time: z.number().nullable(),
+	message: z.string(),
+	show_order_check: z.boolean()
+})
 
 export class StoreClosureError extends Error {
 	end_time: number | null
@@ -18,12 +25,27 @@ export class StoreClosureError extends Error {
 	}
 }
 
+let fetch = browser
+	? window.fetch
+	: () => {
+			return { json: () => {}, text: () => '', status: 404 }
+		}
+
+export const setFetch = (newFetch: typeof fetch) => {
+	fetch = newFetch
+}
+
 const handleFetch = async <T extends ZodType>(
 	typ: T,
 	path: string,
+	body?: Object,
 	params?: RequestInit
 ): Promise<z.infer<T>> => {
-	const resp = await fetch(path, params)
+	const resp = await fetch(`${API_URL}${path}`, {
+		method: body ? 'POST' : 'GET',
+		body: body ? JSON.stringify(body) : undefined,
+		...params
+	})
 	switch (resp.status) {
 		case 401:
 			window.location.replace(`${API_URL}/auth`)
@@ -38,122 +60,150 @@ const handleFetch = async <T extends ZodType>(
 	}
 	const val = await resp.json()
 	const parseResult = typ.safeParse(val)
-	if (parseResult.success) {
-		return parseResult.data
+	if (!parseResult.success) {
+		const err = APIStoreClosureError.safeParse(val)
+		if (err.success) {
+			throw new StoreClosureError(err.data.end_time, err.data.message, err.data.show_order_check)
+		}
+		throw parseResult.error
 	}
-	const err = APIStoreClosureError.safeParse(val)
-	if (err.success) {
-		throw new StoreClosureError(err.data.end_time, err.data.message, err.data.show_order_check)
+	return parseResult.data
+}
+
+const orders = {
+	checkout: async (
+		checkoutItems: CartItem[],
+		name: string,
+		matricNumber: string,
+		email: string,
+		coupon: string | undefined
+	): Promise<string> => {
+		const items = checkoutItems.map((x) => ({
+			id: x.id,
+			variant: x.variant,
+			amount: x.amount
+		}))
+		const resp = await handleFetch(z.object({ checkoutURL: z.string() }), `/checkout`, {
+			name,
+			matricNumber,
+			email,
+			coupon,
+			items
+		})
+		return resp.checkoutURL
+	},
+	search: async (keyword: string): Promise<Order[]> => {
+		let url = `/orders/${encodeURI(keyword)}`
+		const resp = await handleFetch(z.object({ orders: Order.array() }), url)
+		return resp.orders
 	}
-	throw parseResult.error
-}
+} as const
 
-const APIStoreClosureError = z.object({
-	type: z.literal('store_closure'),
-	end_time: z.number().nullable(),
-	message: z.string(),
-	show_order_check: z.boolean()
-})
+const sales = (period: string = 'current') =>
+	({
+		coupons: async (): Promise<Coupon[]> => {
+			const resp = await handleFetch(
+				z.object({ coupons: Coupon.array() }),
+				`/sales/${period}/coupons`
+			)
+			return resp.coupons
+		},
+		couponByCode: async (code: string): Promise<Coupon> =>
+			handleFetch(Coupon, `/sales/${period}/coupons/${encodeURI(code)}`),
+		products: async (): Promise<ShopItem[]> => {
+			const resp = await handleFetch(
+				z.object({ products: ShopItem.array() }),
+				`/sales/${period}/products`
+			)
+			return resp.products
+		}
+	}) as const
 
-const CheckoutResponse = z.object({
-	checkoutURL: z.string()
-})
-export const checkout = async (
-	checkoutItems: CartItem[],
-	name: string,
-	matricNumber: string,
-	email: string,
-	coupon: string | undefined
-): Promise<string> => {
-	const items = checkoutItems.map((x) => ({
-		id: x.id,
-		variant: x.variant,
-		amount: x.amount
-	}))
-	const resp = await handleFetch(CheckoutResponse, `${API_URL}/checkout`, {
-		method: 'POST',
-		body: JSON.stringify({ name, matricNumber, email, coupon, items })
-	})
-	return resp.checkoutURL
-}
+const adminSales = (period: string = 'current') =>
+	({
+		coupons: async (): Promise<AdminCoupon[]> => {
+			const resp = await handleFetch(
+				z.object({ coupons: AdminCoupon.array() }),
+				`/sales/${period}/coupons?include_disabled=1`
+			)
+			return resp.coupons
+		},
+		products: async (): Promise<ShopItem[]> => {
+			const resp = await handleFetch(
+				z.object({ products: ShopItem.array() }),
+				`/sales/${period}/products?include_disabled=1`
+			)
+			return resp.products
+		},
 
-const ProductsResponse = z.object({
-	products: ShopItem.array()
-})
-export const fetchProducts = async (params?: {
-	includeDisabled?: boolean
-	salePeriod?: string
-}): Promise<ShopItem[]> => {
-	const salePeriod = params?.salePeriod || 'current'
-	let path = `${API_URL}/sales/${salePeriod}/products`
-	if (params?.includeDisabled) {
-		path += '?include_disabled=1'
+		updateCoupon: async (coupon: AdminCoupon): Promise<AdminCoupon> =>
+			handleFetch(AdminCoupon, '/coupons', coupon),
+		updateProduct: async (product: ShopItem): Promise<ShopItem> =>
+			handleFetch(ShopItem, '/products', product),
+
+		orderSummary: async (showCollected: boolean): Promise<OrderSummary> => {
+			let url = `/sales/${period}/order_summary`
+			if (showCollected) url += '?show_collected=1'
+			return handleFetch(OrderSummary, url)
+		}
+	}) as const
+
+const adminOrders = {
+	cancel: (orderID: string): Promise<void> =>
+		handleFetch(z.undefined(), `/orders/${encodeURI(orderID)}/cancel`, {}),
+	collect: (orderID: string): Promise<void> =>
+		handleFetch(z.undefined(), `/orders/${encodeURI(orderID)}/collect`, {}),
+	search: async (keyword: string, includeCancelled?: boolean): Promise<Order[]> => {
+		let url = `/orders/${encodeURI(keyword)}?from_item=1`
+		if (includeCancelled) url += '&include_cancelled=1'
+		const resp = await handleFetch(z.object({ orders: Order.array() }), url)
+		return resp.orders
 	}
-	const resp = await handleFetch(ProductsResponse, path)
-	return resp.products
-}
+} as const
 
-export const updateProduct = async (product: ShopItem): Promise<ShopItem> => {
-	return handleFetch(ShopItem, `${API_URL}/products`, {
-		method: 'POST',
-		body: JSON.stringify(product)
-	})
-}
-
-export const fetchCoupon = (couponCode: string, period: string = 'current'): Promise<Coupon> =>
-	handleFetch(Coupon, `${API_URL}/sales/${period}/coupons/${encodeURI(couponCode)}`)
-
-const CouponsResponse = z.object({
-	coupons: Coupon.array()
-})
-export const fetchCoupons = async (period: string = 'current'): Promise<Coupon[]> => {
-	const resp = await handleFetch(CouponsResponse, `${API_URL}/sales/${period}/coupons`)
-	return resp.coupons
-}
-
-const AdminCouponsResponse = z.object({
-	coupons: AdminCoupon.array()
-})
-export const fetchAdminCoupons = async (period: string = 'current'): Promise<AdminCoupon[]> => {
-	const resp = await handleFetch(
-		AdminCouponsResponse,
-		`${API_URL}/sales/${period}/coupons?include_disabled=1`
-	)
-	return resp.coupons
-}
-
-export const updateCoupon = async (coupon: AdminCoupon): Promise<AdminCoupon> =>
-	handleFetch(AdminCoupon, `${API_URL}/coupons`, {
-		method: 'POST',
-		body: JSON.stringify(coupon)
-	})
-
-export const permCheck = async (): Promise<void> => {
-	return handleFetch(z.undefined(), `${API_URL}/perm_check`)
+const adminClosures = {
+	list: async (): Promise<StoreClosure[]> => {
+		const resp = await handleFetch(z.object({ closures: StoreClosure.array() }), `/closures`)
+		return resp.closures
+	},
+	update: (closure: StoreClosure): Promise<StoreClosure> =>
+		handleFetch(StoreClosure, '/closures', closure)
 }
 
 export type User = z.infer<typeof User>
 const User = z.string()
-const UserResponse = z.object({
-	users: User.array()
-})
+const adminUsers = {
+	list: async (): Promise<User[]> => {
+		const resp = await handleFetch(z.object({ users: User.array() }), '/users')
+		return resp.users
+	},
+	add: (user: User): Promise<void> => handleFetch(z.undefined(), '/users', user),
+	remove: (user: User): Promise<void> =>
+		handleFetch(z.undefined(), '/users', user, { method: 'DELETE' })
+} as const
 
-export const listUsers = async (): Promise<User[]> => {
-	const resp = await handleFetch(UserResponse, `${API_URL}/users`)
-	return resp.users
-}
-
-export const addUser = (user: User): Promise<void> =>
-	handleFetch(z.undefined(), `${API_URL}/users`, {
-		method: 'POST',
-		body: JSON.stringify(user)
-	})
-
-export const deleteUser = (user: User): Promise<void> =>
-	handleFetch(z.undefined(), `${API_URL}/users`, {
-		method: 'DELETE',
-		body: JSON.stringify(user)
-	})
+const admin = {
+	closures: adminClosures,
+	orders: adminOrders,
+	sales: adminSales,
+	users: adminUsers,
+	checkPerm: (): Promise<void> => handleFetch(z.undefined(), '/perm_check'),
+	listSales: async (): Promise<SalePeriod[]> => {
+		const resp = await handleFetch(z.object({ periods: SalePeriod.array() }), `/sales`)
+		return resp.periods
+	},
+	updateSales: (period: SalePeriod): Promise<SalePeriod> =>
+		handleFetch(SalePeriod, '/sales', period),
+	uploadImage: async (img: Blob): Promise<string> => {
+		const data = new FormData()
+		data.append('file', img)
+		const resp = await handleFetch(z.object({ url: z.string() }), `/image_upload`, {
+			method: 'POST',
+			body: data
+		})
+		return resp.url
+	}
+} as const
 
 const Order = z.object({
 	id: z.string(),
@@ -168,45 +218,6 @@ const Order = z.object({
 	items: OrderItem.array(),
 	salePeriod: z.string()
 })
-const OrdersResponse = z.object({
-	orders: Order.array()
-})
-export type Order = z.infer<typeof Order>
-export const listOrders = async (
-	keyword: string,
-	options?: { includeCancelled?: boolean; allowFromItem?: boolean }
-): Promise<Order[]> => {
-	let url = `${API_URL}/orders/${encodeURI(keyword)}`
-	const opts = []
-	if (options?.includeCancelled) opts.push('include_cancelled=1')
-	if (options?.allowFromItem) opts.push('from_item=1')
-	if (opts.length > 0) url += `?${opts.join('&')}`
-	const resp = await handleFetch(OrdersResponse, url)
-	return resp.orders
-}
-
-export const collectOrder = (orderID: string): Promise<void> =>
-	handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/collect`, {
-		method: 'POST'
-	})
-export const cancelOrder = (orderID: string): Promise<void> =>
-	handleFetch(z.undefined(), `${API_URL}/orders/${encodeURI(orderID)}/cancel`, {
-		method: 'POST'
-	})
-
-const ImageUploadResponse = z.object({
-	url: z.string()
-})
-export const uploadImage = async (img: Blob): Promise<string> => {
-	const data = new FormData()
-	data.append('file', img)
-	const resp = await handleFetch(ImageUploadResponse, `${API_URL}/image_upload`, {
-		method: 'POST',
-		body: data
-	})
-	return resp.url
-}
-
 const StoreClosure = z.object({
 	id: z.string(),
 	start_time: z.coerce.date(),
@@ -214,23 +225,6 @@ const StoreClosure = z.object({
 	message: z.string(),
 	show_order_check: z.boolean()
 })
-export type StoreClosure = z.infer<typeof StoreClosure>
-
-const StoreClosureResponse = z.object({
-	closures: StoreClosure.array()
-})
-export const listStoreClosures = async (): Promise<StoreClosure[]> => {
-	const resp = await handleFetch(StoreClosureResponse, `${API_URL}/closures`)
-	return resp.closures
-}
-
-export const updateStoreClosure = async (closure: StoreClosure): Promise<StoreClosure> => {
-	return handleFetch(StoreClosure, `${API_URL}/closures`, {
-		method: 'POST',
-		body: JSON.stringify(closure)
-	})
-}
-
 const OrderSummary = z.object({
 	unfulfilled: z
 		.object({
@@ -243,32 +237,19 @@ const OrderSummary = z.object({
 	unfulfilled_order_count: z.number(),
 	fulfilled_order_count: z.number()
 })
-export type OrderSummary = z.infer<typeof OrderSummary>
-export const orderSummary = (
-	showFulfilled: boolean,
-	salePeriod: string = 'current'
-): Promise<OrderSummary> => {
-	let url = `${API_URL}/sales/${salePeriod}/order_summary`
-	if (showFulfilled) url += '?show_collected=1'
-	return handleFetch(OrderSummary, url)
-}
-
 const SalePeriod = z.object({
 	id: z.string(),
 	name: z.string(),
 	start_time: z.coerce.date()
 })
-const SalePeriodResponse = z.object({
-	periods: SalePeriod.array()
-})
-export type SalePeriod = z.infer<typeof SalePeriod>
-export const salePeriods = async (): Promise<SalePeriod[]> => {
-	const resp = await handleFetch(SalePeriodResponse, `${API_URL}/sales`)
-	return resp.periods
-}
 
-export const updateSalePeriod = async (period: SalePeriod): Promise<SalePeriod> =>
-	handleFetch(SalePeriod, `${API_URL}/sales`, {
-		method: 'POST',
-		body: JSON.stringify(period)
-	})
+export type Order = z.infer<typeof Order>
+export type StoreClosure = z.infer<typeof StoreClosure>
+export type OrderSummary = z.infer<typeof OrderSummary>
+export type SalePeriod = z.infer<typeof SalePeriod>
+
+export default {
+	admin,
+	orders,
+	sales
+} as const

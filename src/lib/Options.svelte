@@ -1,51 +1,46 @@
 <script lang="ts">
-	import { formatPrice } from './cart';
+	import { formatPrice } from './cart'
+	import type { ShopItemOption } from './shop'
 
-	export let options: {
-		text: string;
-		additionalPrice?: number;
-	}[];
-	export let value: string | undefined = undefined;
-	export let previewValue: string | undefined = undefined;
+	interface Props {
+		options: ShopItemOption[]
+		value?: string
+		updatePreview?: (preview?: string) => any
+	}
 
-	let currentHover: string | undefined;
+	let { options, updatePreview, value = $bindable() }: Props = $props()
+	let currentHover: string | undefined = $state()
+
 	const select = (option: string) => () => {
 		if (value === option) {
-			value = undefined;
-			return;
+			value = undefined
+			return
 		}
-		value = option;
-	};
-	const hover = (option: string) => () => {
-		currentHover = option;
-	};
-	const unhover = () => {
-		currentHover = undefined;
-	};
-
-	$: currentOffset = options.find((x) => x.text === value)?.additionalPrice ?? 0;
-	$: offsetPriceDisplay = options
-		.map((x) => (x.additionalPrice ?? 0) - currentOffset)
-		.map((x) => {
-			if (x > 0) return `(+$${formatPrice(x / 100)})`;
-			if (x < 0) return `(-$${formatPrice(-x / 100)})`;
-			return '';
-		});
-	$: {
-		if (currentHover) {
-			previewValue = currentHover;
-		} else {
-			previewValue = value;
-		}
+		value = option
 	}
+	const hover = (option: string) => () => (currentHover = option)
+	const unhover = () => (currentHover = undefined)
+
+	const offsetPriceDisplay = $derived.by(() => {
+		const currentOffset = options.find((x) => x.text === value)?.additionalPrice ?? 0
+		return options
+			.map((x) => (x.additionalPrice ?? 0) - currentOffset)
+			.map((x) => {
+				if (x > 0) return `(+$${formatPrice(x / 100)})`
+				if (x < 0) return `(-$${formatPrice(-x / 100)})`
+				return ''
+			})
+	})
+
+	$effect(() => updatePreview?.(currentHover ?? value))
 </script>
 
-<div class="flex flex-wrap gap-x-2 gap-y-1" on:pointerleave={unhover}>
+<div class="flex flex-wrap gap-x-2 gap-y-1" onpointerleave={unhover}>
 	{#each options as option, i}
 		<button
 			class:selected={value === option.text}
-			on:click={select(option.text)}
-			on:pointerenter={hover(option.text)}
+			onclick={select(option.text)}
+			onpointerenter={hover(option.text)}
 		>
 			{option.text}
 			{offsetPriceDisplay[i]}

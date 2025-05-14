@@ -1,23 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { listStoreClosures, updateStoreClosure, type StoreClosure } from '$lib/api';
-	import { formatDate } from '$lib/util';
-	import Button from '$lib/Button.svelte';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import { onMount } from 'svelte'
+	import api, { type StoreClosure } from '$lib/api'
+	import { formatDate } from '$lib/util'
+	import Button from '$lib/Button.svelte'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
-	let closures: StoreClosure[] = $state([]);
-	let loading = $state(true);
-	let fetchError: unknown = $state();
+	let closures: StoreClosure[] = $state([])
+	let loading = $state(true)
+	let fetchError: unknown = $state()
 	onMount(() => {
-		listStoreClosures()
+		api.admin.closures
+			.list()
 			.then((x) => {
-				closures = x;
-				loading = false;
+				closures = x
+				loading = false
 			})
 			.catch((e) => {
-				fetchError = e;
-			});
-	});
+				fetchError = e
+			})
+	})
 
 	$effect(() => {
 		if (!loading && (closures.length === 0 || closures[closures.length - 1].id !== '')) {
@@ -27,32 +28,32 @@
 				end_time: new Date(9999, 11, 31),
 				message: '(New Entry)',
 				show_order_check: true
-			});
+			})
 		}
-	});
+	})
 
-	let selected = $state(-1);
-	let selectedStartDate = $state('');
-	let selectedEndDate = $state('');
+	let selected = $state(-1)
+	let selectedStartDate = $state('')
+	let selectedEndDate = $state('')
 	const select = (i: number) => () => {
-		selected = i;
-		selectedStartDate = formatDate(closures[selected].start_time, 'T');
-		selectedEndDate = formatDate(closures[selected].end_time, 'T');
-	};
+		selected = i
+		selectedStartDate = formatDate(closures[selected].start_time, 'T')
+		selectedEndDate = formatDate(closures[selected].end_time, 'T')
+	}
 
-	let updateError: unknown = $state();
+	let updateError: unknown = $state()
 	const updateClosure = async () => {
 		const newClosure = {
 			...closures[selected],
 			start_time: new Date(selectedStartDate),
 			end_time: new Date(selectedEndDate)
-		};
-		try {
-			closures[selected] = await updateStoreClosure(newClosure);
-		} catch (e) {
-			updateError = e;
 		}
-	};
+		try {
+			closures[selected] = await api.admin.closures.update(newClosure)
+		} catch (e) {
+			updateError = e
+		}
+	}
 </script>
 
 <ErrorBoundary error={fetchError}>

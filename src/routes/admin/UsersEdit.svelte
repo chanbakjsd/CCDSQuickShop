@@ -1,41 +1,42 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { addUser, listUsers, deleteUser } from '$lib/api';
-	import Button from '$lib/Button.svelte';
-	import TrashIcon from '$lib/TrashIcon.svelte';
-	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
+	import { onMount } from 'svelte'
+	import api from '$lib/api'
+	import Button from '$lib/Button.svelte'
+	import Icon from '$lib/icon/Icon.svelte'
+	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
-	let error: unknown = $state();
-	let adminEmail = $state('');
-	let admins: string[] = $state([]);
+	let error: unknown = $state()
+	let adminEmail = $state('')
+	let admins: string[] = $state([])
 	onMount(() => {
-		listUsers()
+		api.admin.users
+			.list()
 			.then((x) => {
-				admins = x;
+				admins = x
 			})
 			.catch((e) => {
-				error = e;
-			});
-	});
+				error = e
+			})
+	})
 
 	const addAdminEmail = async () => {
 		try {
-			await addUser(adminEmail);
-			admins = [...admins, adminEmail];
-			adminEmail = '';
+			await api.admin.users.add(adminEmail)
+			admins = [...admins, adminEmail]
+			adminEmail = ''
 		} catch (e) {
-			error = e;
+			error = e
 		}
-	};
+	}
 
 	const deleteAdminEmail = (email: string) => async () => {
 		try {
-			await deleteUser(email);
-			admins = admins.filter((x) => x !== email);
+			await api.admin.users.remove(email)
+			admins = admins.filter((x) => x !== email)
 		} catch (e) {
-			error = e;
+			error = e
 		}
-	};
+	}
 </script>
 
 <div class="flex flex-col gap-4 p-4">
@@ -52,7 +53,7 @@
 		{#each admins as admin}
 			{admin}
 			<button onclick={deleteAdminEmail(admin)}>
-				<TrashIcon />
+				<Icon name="trash" />
 			</button>
 		{/each}
 	</div>

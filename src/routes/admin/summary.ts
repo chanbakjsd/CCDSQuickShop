@@ -1,4 +1,4 @@
-import type { UnfulfilledOrderSummary } from '$lib/api'
+import type { OrderSummary } from '$lib/api'
 
 type Table = {
 	name: string
@@ -16,7 +16,7 @@ type TableRow = {
 	data: number[]
 }
 
-export const constructTables = (summary: UnfulfilledOrderSummary): Table[] => {
+export const constructTables = (summary: OrderSummary): Table[] => {
 	const variants = productVariants(summary)
 	const productGroups = findProductGroups(variants)
 	return productGroups.map((group) => constructTable(group, variants, summary))
@@ -30,7 +30,7 @@ type SourceRowEntry = {
 	count: number
 }
 
-const productVariants = (summary: UnfulfilledOrderSummary): Record<ProductName, ProductVariant> => {
+const productVariants = (summary: OrderSummary): Record<ProductName, ProductVariant> => {
 	// Black, L and White, XL should generate [Black, White], [L, XL].
 	const productVariants: Record<string, string[][]> = {}
 	summary.unfulfilled.forEach((x) => {
@@ -89,7 +89,7 @@ const findProductGroups = (
 }
 
 const relevantEntriesForProducts = (
-	summary: UnfulfilledOrderSummary,
+	summary: OrderSummary,
 	products: ProductName[]
 ): SourceRowEntry[] =>
 	summary.unfulfilled
@@ -121,7 +121,7 @@ const variantSort = (a: string, b: string) => {
 const constructTable = (
 	group: ProductName[],
 	variants: Record<ProductName, ProductVariant>,
-	summary: UnfulfilledOrderSummary
+	summary: OrderSummary
 ): Table => {
 	const name = group.join(', ')
 	const variant = combineVariants(group, variants)

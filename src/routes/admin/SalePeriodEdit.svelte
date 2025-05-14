@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 
-	import { salePeriods, updateSalePeriod, type SalePeriod } from '$lib/api'
+	import api, { type SalePeriod } from '$lib/api'
 	import { formatDate } from '$lib/util'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 	import Options from '$lib/Options.svelte'
@@ -24,7 +24,7 @@
 	let selectedStartDate = $state('')
 	let periods: SalePeriod[] = $state([])
 	onMount(() => {
-		salePeriods().then((p) => {
+		api.admin.listSales().then((p) => {
 			periods = p
 			loading = false
 		})
@@ -53,7 +53,7 @@
 			start_time: new Date(selectedStartDate)
 		}
 		try {
-			periods[editing] = await updateSalePeriod(newPeriod)
+			periods[editing] = await api.admin.updateSales(newPeriod)
 		} catch (e) {
 			updateError = e
 		}

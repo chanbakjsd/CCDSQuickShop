@@ -1,10 +1,13 @@
 import type { Order } from './api'
 
 const padZero = (s: number) => '0'.repeat(2 - (s + '').length) + s
-export const formatDate = (date: Date | null, connector = ' ') =>
-	date
-		? `${date.getFullYear()}-${padZero(date.getMonth() + 1)}-${padZero(date.getDate())}${connector}${padZero(date.getHours())}:${padZero(date.getMinutes())}:${padZero(date.getSeconds())}`
-		: 'N/A'
+
+export const formatDate = (date: Date | null, connector = ' ') => {
+	if (!date) return 'N/A'
+	const d = `${date.getFullYear()}-${padZero(date.getMonth() + 1)}-${padZero(date.getDate())}`
+	const time = `${padZero(date.getHours())}:${padZero(date.getMinutes())}:${padZero(date.getSeconds())}`
+	return `${d}${connector}${time}`
+}
 
 export const sortOrder = (orders: Order[]) =>
 	orders.sort((a, b) => {

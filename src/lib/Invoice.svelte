@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition'
 	import {
 		type CartItem,
 		type Coupon,
@@ -7,34 +7,30 @@
 		applyCoupon,
 		calculateCartTotal,
 		formatPrice
-	} from './cart';
-	import InvoiceItem from './InvoiceItem.svelte';
-	import { flip } from 'svelte/animate';
+	} from './cart'
+	import InvoiceItem from './InvoiceItem.svelte'
+	import { flip } from 'svelte/animate'
 
-	export let items: (CartItem | OrderItem)[];
-	export let coupon: Coupon | undefined | null;
-	export let editable = false;
+	export let items: (CartItem | OrderItem)[]
+	export let coupon: Coupon | undefined | null
+	export let editable = false
 
-	$: totalBeforeDiscount = calculateCartTotal(items);
+	$: totalBeforeDiscount = calculateCartTotal(items)
 	$: totalAfterDiscount = coupon
 		? Math.min(applyCoupon(items, coupon), totalBeforeDiscount)
-		: totalBeforeDiscount;
-	$: discount = totalBeforeDiscount - totalAfterDiscount;
+		: totalBeforeDiscount
+	$: discount = totalBeforeDiscount - totalAfterDiscount
 
 	const deleteItem = (i: number) => () => {
-		items.splice(i, 1);
-		items = items;
-	};
+		items.splice(i, 1)
+		items = items
+	}
 </script>
 
 <div class="flex flex-col gap-1">
 	{#each items as item, i (item)}
 		<div transition:fade={{ duration: 100 }} animate:flip={{ duration: 200 }}>
-			<InvoiceItem
-				bind:item={items[i]}
-				{editable}
-				deleteItem={editable ? deleteItem(i) : undefined}
-			/>
+			<InvoiceItem item={items[i]} {editable} deleteItem={editable ? deleteItem(i) : undefined} />
 		</div>
 	{/each}
 </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { orderSummary, type OrderSummary } from '$lib/api'
+	import api, { type OrderSummary } from '$lib/api'
 	import Button from '$lib/Button.svelte'
 	import { constructTables } from './summary'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
@@ -12,17 +12,16 @@
 
 	let showCollected = $state(false)
 	let error: unknown = $state()
-	let summary: OrderSummary | undefined = $state(undefined)
-	const refresh = async () => {
+	let summary: OrderSummary | undefined = $state()
+	const refresh = async (showCollected: boolean) => {
 		try {
-			summary = await orderSummary(showCollected, salePeriod)
+			summary = await api.admin.sales(salePeriod).orderSummary(showCollected)
 		} catch (e) {
 			error = e
 		}
 	}
 	$effect(() => {
-		const _ = showCollected
-		refresh()
+		refresh(showCollected)
 	})
 	const totalOrderCount = $derived(
 		(summary?.unfulfilled_order_count ?? 0) + (summary?.fulfilled_order_count ?? 0)
@@ -43,7 +42,7 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex items-center gap-4">
-		<Button onClick={refresh}>Refresh</Button>
+		<Button onClick={() => refresh(showCollected)}>Refresh</Button>
 		<label class="flex gap-2">
 			<input type="checkbox" bind:checked={showCollected} />
 			Show Collected Orders
@@ -63,7 +62,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-1">
-		{#if summary && summary.order_id_samples.length > 0 }
+		{#if summary && summary.order_id_samples.length > 0}
 			<h2 class="text-xl">Unfulfilled Order IDs</h2>
 			<div class="flex flex-wrap gap-x-2">
 				{#each summary.order_id_samples as order_id}

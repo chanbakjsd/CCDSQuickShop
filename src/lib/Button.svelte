@@ -1,32 +1,45 @@
 <script lang="ts">
-	export let disabled = false;
-	export let size: 'md' | 'lg' = 'lg';
-	export let onClick: () => any;
-	export let loading = false;
+	import type { Snippet } from 'svelte'
+	import Icon from './icon/Icon.svelte'
 
-	let internalLoading = false;
+	interface Props {
+		children: Snippet
+		onClick: () => any
+		disabled?: boolean
+		size?: 'md' | 'lg'
+		loading?: boolean
+	}
+	const {
+		children,
+		onClick,
+		disabled = false,
+		size = 'lg',
+		loading: forceLoading = false
+	}: Props = $props()
+
+	let onClickPending = $state(false)
 	export const click = async () => {
-		if (shouldDisable) return;
-		internalLoading = true;
+		if (shouldDisable) return
 		try {
-			await onClick();
+			onClickPending = true
+			await onClick()
 		} catch (e) {
-			console.error('Unhandled onClick error', e);
+			console.error('Unhandled onClick error', e)
+		} finally {
+			onClickPending = false
 		}
-		internalLoading = false;
-	};
+	}
 
-	$: shouldDisable = disabled || loading || internalLoading;
-	$: contentClass = loading || internalLoading ? 'opacity-0' : 'opacity-100';
-	$: loaderClass = loading || internalLoading ? 'opacity-100' : 'opacity-0';
+	const isLoading = $derived(forceLoading || onClickPending)
+	const shouldDisable = $derived(disabled || isLoading)
+	const contentClass = $derived(isLoading ? 'opacity-0' : 'opacity-100')
+	const loaderClass = $derived(isLoading ? 'opacity-100' : 'opacity-0')
 </script>
 
-<button class={`relative button-${size}`} on:click={click} disabled={shouldDisable}>
-	<div class={`transition-all ${contentClass}`}>
-		<slot />
-	</div>
+<button class={`relative size-${size}`} onclick={click} disabled={shouldDisable}>
+	<div class={`transition-all ${contentClass}`}>{@render children()}</div>
 	<div class={`absolute bottom-1/3 left-1/3 right-1/3 top-1/3 flex ${loaderClass}`}>
-		<div class="loader mx-auto"></div>
+		<div class="mx-auto"><Icon name="loading" /></div>
 	</div>
 </button>
 
@@ -45,45 +58,7 @@
 		@apply scale-100 cursor-not-allowed bg-gray-300 text-gray-700;
 	}
 
-	button.button-md {
+	button.size-md {
 		@apply px-4 py-1 text-base;
-	}
-
-	.loader {
-		@apply max-h-full max-w-full;
-		aspect-ratio: 2;
-		--_g: no-repeat radial-gradient(circle closest-side, #777 90%, #0000);
-		background:
-			var(--_g) 0% 50%,
-			var(--_g) 50% 50%,
-			var(--_g) 100% 50%;
-		background-size: calc(100% / 3) 50%;
-		animation: l3 1s infinite linear;
-	}
-	@keyframes l3 {
-		20% {
-			background-position:
-				0% 0%,
-				50% 50%,
-				100% 50%;
-		}
-		40% {
-			background-position:
-				0% 100%,
-				50% 0%,
-				100% 50%;
-		}
-		60% {
-			background-position:
-				0% 50%,
-				50% 100%,
-				100% 0%;
-		}
-		80% {
-			background-position:
-				0% 50%,
-				50% 50%,
-				100% 100%;
-		}
 	}
 </style>

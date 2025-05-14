@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 
-	import { fetchProducts, updateProduct } from '$lib/api'
+	import api from '$lib/api'
 	import { emptyShopItem, type ShopItem } from '$lib/shop'
 	import MerchList from '$lib/MerchList.svelte'
 	import ProductEdit from './ProductEdit.svelte'
@@ -16,7 +16,9 @@
 	let items: ShopItem[] = $state([])
 	let fetchError: unknown = $state()
 	onMount(() => {
-		fetchProducts({ includeDisabled: true, salePeriod })
+		api.admin
+			.sales(salePeriod)
+			.products()
 			.then((x) => {
 				loading = false
 				items = x
@@ -44,8 +46,7 @@
 	const update = async () => {
 		if (!selectedItem) return
 		try {
-			const updatedItem = await updateProduct(selectedItem)
-			items[selectedItemIdx] = updatedItem
+			items[selectedItemIdx] = await api.admin.sales(salePeriod).updateProduct(selectedItem)
 		} catch (e) {
 			updateError = e
 		}

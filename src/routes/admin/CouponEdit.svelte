@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { EMAIL_SUFFIX, AdminCoupon } from '$lib/cart'
-	import { fetchAdminCoupons, updateCoupon } from '$lib/api'
+	import api from '$lib/api'
 	import { onMount } from 'svelte'
 	import Button from '$lib/Button.svelte'
-	import TrashIcon from '$lib/TrashIcon.svelte'
+	import Icon from '$lib/icon/Icon.svelte'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 
 	interface Props {
@@ -15,7 +15,9 @@
 	let coupons: AdminCoupon[] = $state([])
 	let error: unknown = $state()
 	onMount(() => {
-		fetchAdminCoupons(salePeriod)
+		api.admin
+			.sales(salePeriod)
+			.coupons()
 			.then((x) => {
 				loading = false
 				coupons = x
@@ -74,7 +76,7 @@
 
 	const update = async () => {
 		try {
-			coupons[selected] = await updateCoupon(coupons[selected])
+			coupons[selected] = await api.admin.sales(salePeriod).updateCoupon(coupons[selected])
 		} catch (e) {
 			error = e
 		}
@@ -154,7 +156,7 @@
 					<option value="purchase_count">Minimum Purchase Quantity</option>
 					<option value="email">Buyer Email (include {EMAIL_SUFFIX}!)</option>
 				</select>
-				<button onclick={removeRequirement(i)}><TrashIcon classes="size-4" /></button>
+				<button onclick={removeRequirement(i)}><Icon name="trash" class="size-4" /></button>
 			</div>
 			<div>
 				{#if req.type === 'purchase_count'}

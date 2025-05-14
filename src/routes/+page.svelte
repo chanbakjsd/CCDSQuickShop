@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { CartItem } from '$lib/cart';
-	import CartIcon from '$lib/CartIcon.svelte';
-	import Header from '$lib/Header.svelte';
+	import type { CartItem } from '$lib/cart'
+	import Icon from '$lib/icon/Icon.svelte'
+	import Header from '$lib/Header.svelte'
 
-	import type { PageData } from './$types';
-	import Cart from './Cart.svelte';
-	import MerchSelection from './MerchSelection.svelte';
+	import type { PageData } from './$types'
+	import Cart from './Cart.svelte'
+	import MerchSelection from './MerchSelection.svelte'
 
-	const { data }: { data: PageData } = $props();
+	const { data }: { data: PageData } = $props()
 
-	let openCart = $state(false);
+	let openCart = $state(false)
 
-	let cart: CartItem[] = $state([]);
+	let cart: CartItem[] = $state([])
 	const addToCart = (item: CartItem) => {
 		// Try to search for existing entries and add amount instead.
 		for (let i = 0; i < cart.length; i++) {
@@ -20,23 +20,23 @@
 				cart[i].variant.length !== item.variant.length ||
 				cart[i].amount + item.amount > 50
 			) {
-				continue;
+				continue
 			}
 			const variantMatch = cart[i].variant.every((x) =>
 				item.variant.some((y) => x.type === y.type && x.option === y.option)
-			);
+			)
 			if (!variantMatch) {
-				continue;
+				continue
 			}
 			// This is a match! Just add amount.
-			cart[i].amount += item.amount;
-			return;
+			cart[i].amount += item.amount
+			return
 		}
-		cart = [...cart, item];
-	};
+		cart = [...cart, item]
+	}
 
-	const cartColor = $derived(cart.length > 0 ? 'bg-red-300' : 'bg-gray-300');
-	const cartItemCount = $derived(cart.reduce((acc, x) => x.amount + acc, 0));
+	const cartColor = $derived(cart.length > 0 ? 'bg-red-300' : 'bg-gray-300')
+	const cartItemCount = $derived(cart.reduce((acc, x) => x.amount + acc, 0))
 </script>
 
 <svelte:head><title>SCDS Merch Store</title></svelte:head>
@@ -48,7 +48,7 @@
 				class="absolute right-4 flex justify-center gap-1 md:hidden"
 				onclick={() => (openCart = true)}
 			>
-				<CartIcon />
+				<Icon name="cart" />
 				<div class={`${cartColor} rounded-full px-2`}>{cartItemCount}</div>
 			</button>
 		</Header>

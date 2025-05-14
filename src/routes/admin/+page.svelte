@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 
-	import { permCheck } from '$lib/api'
+	import api from '$lib/api'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 	import Header from '$lib/Header.svelte'
 	import Options from '$lib/Options.svelte'
@@ -13,7 +13,7 @@
 	let err: unknown = $state()
 	onMount(() => {
 		try {
-			permCheck()
+			api.admin.checkPerm()
 		} catch (e) {
 			err = e
 		}

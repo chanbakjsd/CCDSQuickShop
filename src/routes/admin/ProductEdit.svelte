@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/Button.svelte'
 	import type { ShopItem } from '$lib/shop'
-	import TrashIcon from '$lib/TrashIcon.svelte'
+	import Icon from '$lib/icon/Icon.svelte'
 	import ImageUpload from './ImageUpload.svelte'
 
 	interface Props {
@@ -74,14 +74,14 @@
 	{#each product.variants as variant, i}
 		<div class="flex gap-x-2 self-start">
 			<input bind:value={product.variants[i].type} placeholder="Variant Name" />
-			<button onclick={removeVariant(i)}><TrashIcon classes="size-4" /></button>
+			<button onclick={removeVariant(i)}><Icon name="trash" class="size-4" /></button>
 		</div>
 		<div class="variant-config">
 			{#each variant.options as _, j}
 				<input bind:value={product.variants[i].options[j].text} placeholder="Option Name" />
 				<span>Additional Price</span>
 				<input type="number" bind:value={product.variants[i].options[j].additionalPrice} />
-				<button onclick={removeVariantOption(i, j)}><TrashIcon classes="size-4" /></button>
+				<button onclick={removeVariantOption(i, j)}><Icon name="trash" class="size-4" /></button>
 			{/each}
 			<Button size="md" onClick={addVariantOption(i)}>Add {variant.type} Option</Button>
 		</div>
@@ -91,7 +91,7 @@
 	{#each product.imageURLs as _, i}
 		<div class="flex items-center justify-between self-start">
 			<span>Variant {i + 1}</span>
-			<button onclick={removeImageURL(i)}><TrashIcon classes="size-4" /></button>
+			<button onclick={removeImageURL(i)}><Icon name="trash" class="size-4" /></button>
 		</div>
 		<div class="flex flex-col justify-start gap-1">
 			<div class="flex gap-1">

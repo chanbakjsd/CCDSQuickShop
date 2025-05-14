@@ -1,17 +1,21 @@
-import { error, redirect } from '@sveltejs/kit';
-import { StoreClosureError, fetchCoupons, fetchProducts } from '$lib/api';
-import type { PageLoad } from './$types';
+import { error, redirect } from '@sveltejs/kit'
+import api, { setFetch, StoreClosureError } from '$lib/api'
+import type { PageLoad } from './$types'
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ fetch }) => {
+	setFetch(fetch)
 	try {
 		return {
-			items: await fetchProducts(),
-			coupons: await fetchCoupons(),
-		};
+			items: await api.sales().products(),
+			coupons: await api.sales().coupons()
+		}
 	} catch (e) {
 		if (e instanceof StoreClosureError) {
-			redirect(307, "/wait")
+			redirect(307, '/wait')
+		}
+		if (e instanceof Error || typeof e === 'string') {
+			error(500, e)
 		}
 		error(500)
 	}
-};
+}

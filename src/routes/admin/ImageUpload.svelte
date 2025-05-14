@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { uploadImage } from '$lib/api'
+	import api from '$lib/api'
 	import Button from '$lib/Button.svelte'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
 	import type { ChangeEventHandler } from 'svelte/elements'
@@ -23,7 +23,7 @@
 			return
 		}
 		try {
-			value = await uploadImage(files[0])
+			value = await api.admin.uploadImage(files[0])
 		} catch (e) {
 			uploadError = e
 		}

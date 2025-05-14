@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import { cancelOrder, collectOrder, listOrders, type Order } from '$lib/api'
+	import api, { type Order } from '$lib/api'
 	import { sortOrder } from '$lib/util'
 	import Button from '$lib/Button.svelte'
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte'
@@ -36,7 +36,7 @@
 				pastSearches = pastSearches.slice(0, pastSearches.length - 1)
 			}
 			window.localStorage.setItem('adminSearchHistory', JSON.stringify(pastSearches))
-			orders = sortOrder(await listOrders(orderInput, { includeCancelled, allowFromItem: true }))
+			orders = sortOrder(await api.admin.orders.search(orderInput, includeCancelled))
 			emptyResponse = orders.length === 0
 		} catch (e) {
 			error = e
@@ -44,7 +44,7 @@
 	}
 	const markCollect = (orderID: string) => async () => {
 		try {
-			await collectOrder(orderID)
+			await api.admin.orders.collect(orderID)
 			orders = orders.map((x) => ({
 				...x,
 				collectionTime: x.id === orderID ? new Date() : x.collectionTime
@@ -55,7 +55,7 @@
 	}
 	const markCancel = (orderID: string) => async () => {
 		try {
-			await cancelOrder(orderID)
+			await api.admin.orders.cancel(orderID)
 			orders = orders.map((x) => ({
 				...x,
 				cancelled: x.id === orderID ? true : x.cancelled

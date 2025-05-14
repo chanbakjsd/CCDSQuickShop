@@ -2,8 +2,7 @@
 	import type { Order } from '$lib/api'
 	import { formatDate } from '$lib/util'
 	import Button from '$lib/Button.svelte'
-	import IconChevronDown from '$lib/IconChevronDown.svelte'
-	import IconChevronUp from '$lib/IconChevronUp.svelte'
+	import Icon from '$lib/icon/Icon.svelte'
 	import Invoice from '$lib/Invoice.svelte'
 
 	export let order: Order
@@ -65,7 +64,7 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<span class="italic text-gray-400">{order.salePeriod}</span>
-			{#if expanded}<IconChevronUp />{:else}<IconChevronDown />{/if}
+			<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 		</div>
 	</button>
 	<div class="overflow-hidden bg-white transition-all" style:max-height={maxHeight}>

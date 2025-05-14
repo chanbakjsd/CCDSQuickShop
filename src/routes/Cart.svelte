@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { checkout, fetchCoupon } from '$lib/api';
+	import api from '$lib/api';
 	import {
 		EMAIL_SUFFIX,
 		type CartItem,
@@ -11,7 +11,7 @@
 	import Input from '$lib/Input.svelte';
 	import Invoice from '$lib/Invoice.svelte';
 	import ErrorBoundary from '$lib/ErrorBoundary.svelte';
-	import IconX from '$lib/IconX.svelte';
+	import Icon from '$lib/icon/Icon.svelte';
 
 	interface Props {
 		cart: CartItem[];
@@ -40,7 +40,7 @@
 	const searchCoupon = async (cart: CartItem[], couponCode: string) => {
 		let candidate = availableCoupons.find((x) => x.couponCode === couponCode);
 		if (!candidate) {
-			candidate = await fetchCoupon(couponCode);
+			candidate = await api.sales().couponByCode(couponCode);
 		}
 		if (candidate.requirements.every((x) => checkRequirement(cart, userEmail, x))) return candidate;
 		throw new Error('Coupon requirement not matched');
@@ -90,7 +90,7 @@
 	let checkoutError: unknown = $state();
 	const processCheckout = async () => {
 		try {
-			const checkoutURL = await checkout(
+			const checkoutURL = await api.orders.checkout(
 				cart,
 				userName,
 				userMatricNumber,
@@ -111,7 +111,7 @@
 	<div>
 		<div class="flex justify-between">
 			<h1 class="text-2xl">Cart</h1>
-			<button onclick={close} class={closeClass}><IconX /></button>
+			<button onclick={close} class={closeClass}><Icon name="x" /></button>
 		</div>
 		<div class="full flex flex-col gap-2 lg:px-8">
 			<div class="my-2">
