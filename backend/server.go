@@ -90,8 +90,8 @@ func (s *Server) HTTPMux() *http.ServeMux {
 	// Admin paths.
 	mux.HandleFunc("GET /api/v0/auth", s.Auth)
 	mux.HandleFunc("GET /api/v0/auth/callback", s.AuthCallback)
-	mux.HandleFunc("POST /api/v0/coupons", s.SaveCoupon)
-	mux.HandleFunc("POST /api/v0/products", s.SaveProduct)
+	mux.HandleFunc("POST /api/v0/sales/{sale_id}/coupons", s.SaveCoupon)
+	mux.HandleFunc("POST /api/v0/sales/{sale_id}/products", s.SaveProduct)
 	mux.HandleFunc("POST /api/v0/image_upload", s.ImageUpload)
 	mux.HandleFunc("POST /api/v0/orders/{id}/collect", s.OrderCollect)
 	mux.HandleFunc("POST /api/v0/orders/{id}/cancel", s.OrderCancel)

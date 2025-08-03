@@ -137,9 +137,9 @@ const adminSales = (period: string = 'current') =>
 		},
 
 		updateCoupon: async (coupon: AdminCoupon): Promise<AdminCoupon> =>
-			handleFetch(AdminCoupon, '/coupons', coupon),
+			handleFetch(AdminCoupon, `/sales/${period}/coupons`, coupon),
 		updateProduct: async (product: ShopItem): Promise<ShopItem> =>
-			handleFetch(ShopItem, '/products', product),
+			handleFetch(ShopItem, `/sales/${period}/products`, product),
 
 		orderSummary: async (showCollected: boolean): Promise<OrderSummary> => {
 			let url = `/sales/${period}/order_summary`

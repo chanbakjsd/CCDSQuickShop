@@ -103,6 +103,10 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid Body", http.StatusBadRequest)
 		return
 	}
+	salePeriod, ok := s.resolveSalePeriod(w, req, req.PathValue("sale_id"))
+	if !ok {
+		return
+	}
 	productVariants, err := json.Marshal(product.Variants)
 	if err != nil {
 		slog.Error("error marshalling product variant", "err", err)
@@ -125,7 +129,7 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 			Variants:         string(productVariants),
 			VariantImageUrls: string(imageURLs),
 			Enabled:          *product.Enabled,
-			SalePeriod:       int64(product.SalePeriod),
+			SalePeriod:       salePeriod,
 		})
 		product.ID = strconv.Itoa(int(newID))
 	default:
@@ -143,6 +147,7 @@ func (s *Server) SaveProduct(w http.ResponseWriter, req *http.Request) {
 			Variants:         string(productVariants),
 			VariantImageUrls: string(imageURLs),
 			Enabled:          *product.Enabled,
+			SalePeriod:       salePeriod,
 		})
 	}
 	switch {

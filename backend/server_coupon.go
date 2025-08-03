@@ -222,6 +222,7 @@ func (s *Server) SaveCoupon(w http.ResponseWriter, req *http.Request) {
 			DiscountPercentage:  int64(discountPercentage),
 			Enabled:             couponEnabled,
 			Public:              couponPublic,
+			SalePeriod:          salePeriod,
 		})
 	}
 	switch {

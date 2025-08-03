@@ -98,7 +98,8 @@ SET
 	variant_image_urls = ?,
 	enabled = ?
 WHERE
-	product_id = ?;
+	product_id = ?
+	AND sale_period = ?;
 
 -- name: SetProductEnabled :exec
 UPDATE
@@ -147,7 +148,7 @@ SELECT
 FROM
 	coupons
 WHERE
-	coupon_code = ?
+	coupon_code = ? COLLATE NOCASE
 	AND enabled = TRUE
 	AND sale_period = ?;
 
@@ -163,7 +164,8 @@ SET
 	enabled = ?,
 	public = ?
 WHERE
-	coupon_id = ?;
+	coupon_id = ?
+	AND sale_period = ?;
 
 -- name: SetCouponEnabled :exec
 UPDATE

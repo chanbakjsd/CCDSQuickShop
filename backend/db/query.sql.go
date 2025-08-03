@@ -128,7 +128,7 @@ SELECT
 FROM
 	coupons
 WHERE
-	coupon_code = ?
+	coupon_code = ? COLLATE NOCASE
 	AND enabled = TRUE
 	AND sale_period = ?
 `
@@ -1111,6 +1111,7 @@ SET
 	public = ?
 WHERE
 	coupon_id = ?
+	AND sale_period = ?
 `
 
 type UpdateCouponParams struct {
@@ -1122,6 +1123,7 @@ type UpdateCouponParams struct {
 	Enabled             bool
 	Public              bool
 	CouponID            int64
+	SalePeriod          int64
 }
 
 func (q *Queries) UpdateCoupon(ctx context.Context, arg UpdateCouponParams) error {
@@ -1134,6 +1136,7 @@ func (q *Queries) UpdateCoupon(ctx context.Context, arg UpdateCouponParams) erro
 		arg.Enabled,
 		arg.Public,
 		arg.CouponID,
+		arg.SalePeriod,
 	)
 	return err
 }
@@ -1150,6 +1153,7 @@ SET
 	enabled = ?
 WHERE
 	product_id = ?
+	AND sale_period = ?
 `
 
 type UpdateProductParams struct {
@@ -1160,6 +1164,7 @@ type UpdateProductParams struct {
 	VariantImageUrls string
 	Enabled          bool
 	ProductID        int64
+	SalePeriod       int64
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) error {
@@ -1171,6 +1176,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.VariantImageUrls,
 		arg.Enabled,
 		arg.ProductID,
+		arg.SalePeriod,
 	)
 	return err
 }
