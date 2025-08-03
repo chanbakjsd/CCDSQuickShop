@@ -2,7 +2,7 @@ import type { OrderSummary } from '$lib/api'
 
 type Table = {
 	name: string
-	columns: TableColumn[][]
+	columns?: TableColumn[][]
 	rows: TableRow[]
 }
 
@@ -180,6 +180,9 @@ const constructTable = (
 			}
 			return variantSort(a.label, b.label)
 		})
+	if (columns.length === 1 && columns[0].length === 1 && columns[0][0]) {
+		return { name, rows }
+	}
 	return { name, columns, rows }
 }
 

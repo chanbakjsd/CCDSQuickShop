@@ -84,16 +84,18 @@
 		{#each summaryTables as tbl}
 			<h3 class="mt-4 text-lg">{tbl.name}</h3>
 			<table>
-				<thead>
-					{#each tbl.columns as colRow}
-						<tr>
-							<th></th>
-							{#each colRow as col}
-								<th colspan={col.span}>{col.label}</th>
-							{/each}
-						</tr>
-					{/each}
-				</thead>
+				{#if tbl.columns}
+					<thead>
+						{#each tbl.columns as colRow}
+							<tr>
+								<th></th>
+								{#each colRow as col}
+									<th colspan={col.span}>{col.label}</th>
+								{/each}
+							</tr>
+						{/each}
+					</thead>
+				{/if}
 				<tbody>
 					{#each tbl.rows as row}
 						<tr>
