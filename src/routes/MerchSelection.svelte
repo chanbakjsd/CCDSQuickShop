@@ -14,9 +14,11 @@
 
 	const { items, addItem }: Props = $props()
 	// All the variants that the user has committed to (clicked on).
-	const chosenVariants: Record<string, string | undefined>[] = []
+	const chosenVariants: Record<string, string | undefined>[] = $state([])
+	const previewVariants: Record<string, string | undefined>[] = $state([])
 	$effect(() => {
 		while (chosenVariants.length < items.length) chosenVariants.push({})
+		while (previewVariants.length < items.length) previewVariants.push({})
 	})
 	// The index of the merch being selected right now.
 	let activeMerch = $state(-1)
@@ -39,11 +41,13 @@
 		}
 	})
 
-	const selectedVariant = $derived(activeMerch >= 0 ? chosenVariants[activeMerch] : {})
+	const selectedPreviewVariant = $derived(activeMerch >= 0 ? previewVariants[activeMerch] : {})
 	const updatePreview = (type: string) => (variant?: string) =>
-		(chosenVariants[activeMerch][type] = variant)
+		(previewVariants[activeMerch][type] = variant)
 
-	const previewImage = $derived(selectedItem ? resolveImageURL(selectedItem, selectedVariant) : '')
+	const previewImage = $derived(
+		selectedItem ? resolveImageURL(selectedItem, selectedPreviewVariant) : ''
+	)
 	const tryAddItem = () => {
 		if (!cartItem) return
 		addItem({ ...cartItem })
@@ -61,7 +65,7 @@
 			<div class="row-start-2 flex min-w-0 flex-col gap-2 break-words lg:row-start-1">
 				<p class="text-3xl">{selectedItem.name}</p>
 				<p class="text-xl">
-					S$ {formatPrice(tentativePrice(selectedItem, selectedVariant) / 100)}
+					S$ {formatPrice(tentativePrice(selectedItem, selectedPreviewVariant) / 100)}
 				</p>
 				<div class="options">
 					{#each selectedItem.variants as variant}

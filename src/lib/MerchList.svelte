@@ -16,7 +16,7 @@
 	{#each items as item, i}
 		<MerchCard
 			name={item.name}
-			imageURL={resolveImageURL(item, variants[i])}
+			imageURL={resolveImageURL(item, variants[i] || {})}
 			basePrice={item.basePrice / 100}
 			selected={value === i}
 			onclick={select(i)}
