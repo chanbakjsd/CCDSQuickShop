@@ -9,6 +9,28 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
+func scaleImage(img image.Image, maxSize int) image.Image {
+	imgSize := img.Bounds()
+	w := imgSize.Dx()
+	h := imgSize.Dy()
+	if w <= maxSize && h <= maxSize {
+		// Just use the image as-is.
+		return img
+	}
+	// Resize it to a smaller image.
+	destRect := image.Rect(0, 0, maxSize, maxSize)
+	switch {
+	case w > h:
+		destRect = image.Rect(0, 0, maxSize, maxSize*h/w)
+	case w < h:
+		destRect = image.Rect(0, 0, maxSize*w/h, maxSize)
+	default:
+	}
+	dest := image.NewNRGBA(destRect)
+	draw.CatmullRom.Scale(dest, destRect, img, imgSize, draw.Src, nil)
+	return dest
+}
+
 func squareImage(img image.Image, maxSize int) image.Image {
 	bounds := largestCenterSquare(img.Bounds())
 	if bounds.Dx() <= maxSize {

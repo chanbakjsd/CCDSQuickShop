@@ -204,6 +204,16 @@ func (s *Server) ImageUpload(w http.ResponseWriter, req *http.Request) {
 	if !s.authCheck(w, req) {
 		return
 	}
+	skipSquare := false
+	switch req.FormValue("raw") {
+	case "1":
+		skipSquare = true
+	case "0", "":
+		skipSquare = false
+	default:
+		http.Error(w, "Invalid raw value, only 0 and 1 are allowed", http.StatusBadRequest)
+		return
+	}
 	req.Body = http.MaxBytesReader(w, req.Body, MaxImageSizeBytes)
 	if err := req.ParseMultipartForm(MaxImageSizeBytes); err != nil {
 		slog.Error("error parsing multipart form", "err", err)
@@ -244,7 +254,11 @@ func (s *Server) ImageUpload(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	img = squareImage(img, MaxImagePixelAfterResize)
+	if skipSquare {
+		img = scaleImage(img, MaxImagePixelAfterResize)
+	} else {
+		img = squareImage(img, MaxImagePixelAfterResize)
+	}
 	imageName := imageID + ".png"
 	f, err := os.Create(path.Join(s.Config.ImageDir, imageName))
 	if err != nil {

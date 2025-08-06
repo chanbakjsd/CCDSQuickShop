@@ -6,6 +6,7 @@
 	import Button from '$lib/Button.svelte'
 	import MerchList from '$lib/MerchList.svelte'
 	import ZoomableImage from '$lib/ZoomableImage.svelte'
+	import Icon from '$lib/icon/Icon.svelte'
 
 	interface Props {
 		items: ShopItem[]
@@ -67,18 +68,27 @@
 				<p class="text-xl">
 					S$ {formatPrice(tentativePrice(selectedItem, selectedPreviewVariant) / 100)}
 				</p>
+				<div class="mb-2">
+					<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
+				</div>
 				<div class="options">
 					{#each selectedItem.variants as variant}
-						<span class="py-1 transition-all">{variant.type}</span>
+						<div class="flex gap-2">
+							<span class="py-1 transition-all">{variant.type}</span>
+							{#if variant.chart_url}
+								<ZoomableImage imageURL={variant.chart_url} name={variant.type + ' Variants'}>
+									{#snippet trigger()}
+										<Icon name="question-mark-circle" class="size-5" />
+									{/snippet}
+								</ZoomableImage>
+							{/if}
+						</div>
 						<Options
 							options={variant.options}
 							bind:value={chosenVariants[activeMerch][variant.type]}
 							updatePreview={updatePreview(variant.type)}
 						/>
 					{/each}
-				</div>
-				<div class="mt-2">
-					<Button onClick={tryAddItem} disabled={!cartItem}>Add to Cart</Button>
 				</div>
 			</div>
 			<div class="row-start-1">

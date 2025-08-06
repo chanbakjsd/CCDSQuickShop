@@ -1,31 +1,31 @@
 <script lang="ts">
-	export let label: string;
-	export let value = '';
-	export let validate: (_value: string) => Promise<boolean> | boolean = () => true;
-	export let invalid = false;
+	export let label: string
+	export let value = ''
+	export let validate: (_value: string) => Promise<boolean> | boolean = () => true
+	export let invalid = false
 
-	let focused = false;
-	const focus = () => (focused = true);
+	let focused = false
+	const focus = () => (focused = true)
 	const blur = () => {
-		focused = false;
-		checkValue(value, true);
-	};
+		focused = false
+		checkValue(value, true)
+	}
 
-	let hasError = false;
+	let hasError = false
 	const checkValue = async (value: string, markNewError: boolean) => {
 		if (await validate(value)) {
-			hasError = false;
-			return;
+			hasError = false
+			return
 		}
 		if (markNewError) {
-			hasError = true;
+			hasError = true
 		}
-	};
+	}
 
-	$: checkValue(value, false);
+	$: checkValue(value, false)
 </script>
 
-<label class="relative" class:hasError={hasError || invalid}>
+<label class="relative h-fit" class:hasError={hasError || invalid}>
 	<div class="label" class:expand={value === '' && !focused}>
 		<div class="absolute left-0 top-0 w-max">{label}</div>
 	</div>

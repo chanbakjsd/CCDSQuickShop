@@ -1,20 +1,26 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte'
 	import Icon from '$lib/icon/Icon.svelte'
 
 	interface Props {
+		trigger?: Snippet
 		imageURL: string
 		name: string
-		class: string
+		class?: string
 	}
 
-	const { imageURL, name, class: klass }: Props = $props()
+	const { trigger, imageURL, name, class: klass }: Props = $props()
 
 	let overlayShown = $state(false)
 	const updateShown = (newVal: boolean) => () => (overlayShown = newVal)
 </script>
 
-<button onclick={updateShown(true)} class={`${klass} cursor-zoom-in`}>
-	<img alt={`Picture of ${name}`} src={imageURL} />
+<button onclick={updateShown(true)} class={`${klass ?? ''} cursor-zoom-in`}>
+	{#if trigger}
+		{@render trigger()}
+	{:else}
+		<img alt={`Picture of ${name}`} src={imageURL} />
+	{/if}
 </button>
 
 {#if overlayShown}

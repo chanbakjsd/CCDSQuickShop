@@ -194,10 +194,11 @@ const admin = {
 	},
 	updateSales: (period: SalePeriod): Promise<SalePeriod> =>
 		handleFetch(SalePeriod, '/sales', period),
-	uploadImage: async (img: Blob): Promise<string> => {
+	uploadImage: async (img: Blob, raw: boolean = false): Promise<string> => {
 		const data = new FormData()
 		data.append('file', img)
-		const resp = await handleFetch(z.object({ url: z.string() }), `/image_upload`, {
+		data.append('raw', `${raw ? 1 : 0}`)
+		const resp = await handleFetch(z.object({ url: z.string() }), `/image_upload`, undefined, {
 			method: 'POST',
 			body: data
 		})

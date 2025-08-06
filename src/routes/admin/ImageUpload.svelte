@@ -5,9 +5,10 @@
 	import type { ChangeEventHandler } from 'svelte/elements'
 
 	interface Props {
-		value: string
+		value?: string
+		raw?: boolean
 	}
-	let { value = $bindable() }: Props = $props()
+	let { value = $bindable(), raw }: Props = $props()
 
 	let fileSelect: HTMLInputElement
 	let resolveFileSelect: ((filelist: FileList) => void) | undefined = undefined
@@ -23,7 +24,7 @@
 			return
 		}
 		try {
-			value = await api.admin.uploadImage(files[0])
+			value = await api.admin.uploadImage(files[0], raw)
 		} catch (e) {
 			uploadError = e
 		}

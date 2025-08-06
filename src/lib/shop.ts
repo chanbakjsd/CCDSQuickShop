@@ -3,6 +3,7 @@ import { z } from 'zod'
 export type ShopItemOption = z.infer<typeof ShopItemVariant>['options'][number]
 const ShopItemVariant = z.object({
 	type: z.string(),
+	chart_url: z.string().optional(),
 	options: z
 		.object({
 			text: z.string(),

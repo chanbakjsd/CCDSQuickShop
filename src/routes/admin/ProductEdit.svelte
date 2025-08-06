@@ -77,6 +77,10 @@
 			<button onclick={removeVariant(i)}><Icon name="trash" class="size-4" /></button>
 		</div>
 		<div class="variant-config">
+			<div class="col-span-4 flex items-center gap-1">
+				<span>Size Chart URL</span>
+				<ImageUpload bind:value={product.variants[i].chart_url} raw />
+			</div>
 			{#each variant.options as _, j}
 				<input bind:value={product.variants[i].options[j].text} placeholder="Option Name" />
 				<span>Additional Price</span>
@@ -120,6 +124,9 @@
 	}
 	input {
 		@apply max-w-64 border border-black px-1;
+	}
+	input:disabled {
+		@apply cursor-not-allowed border-gray-600 bg-gray-200 text-gray-500;
 	}
 	input[type='checkbox'] {
 		@apply justify-self-start;

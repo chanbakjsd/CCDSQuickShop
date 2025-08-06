@@ -29,8 +29,9 @@ type Product struct {
 }
 
 type ProductVariant struct {
-	Type    string                  `json:"type"`
-	Options []ProductVariantOptions `json:"options"`
+	Type     string                  `json:"type"`
+	ChartURL *string                 `json:"chart_url,omitempty"`
+	Options  []ProductVariantOptions `json:"options"`
 }
 
 type ProductVariantOptions struct {
